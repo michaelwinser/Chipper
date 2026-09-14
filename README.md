@@ -16,8 +16,11 @@ Working name. Structure is SGPT; the app is Chipper.
 | Path | What it is |
 |---|---|
 | `PRD.md` | Product requirements. Principles, concepts, the one view, 30-odd numbered use cases (UC-####) written as `Pre / Do / Then / Never`. The `Never` clauses are the product principles made testable. |
+| `ROADMAP.md` | Eight milestones, each a vertical slice that ends in something usable and something testable. |
+| `DESIGN.md` | Technical design. Layering, data model, the store port and its conformance suite, the pure view model, toolchain and tests. |
 | `mocks/*.dc.html` | Ten screen mockups, one artboard per file. Source, hand-editable. |
 | `mocks/canvas.json` | Canvas layout: artboard positions, titles, annotations. |
+| `.claude/agents/` | Standing reviewer roles. Read-only agents that audit the docs and mocks along one dimension each: lifecycle, principles, traceability, edge states, contracts. |
 
 ### Viewing the mockups
 
@@ -26,8 +29,30 @@ The files in `mocks/` are the source. A rendered pan/zoom canvas of them lives a
 It is regenerated from the `.dc.html` sources with the `design` skill; `mocks/chipper-mockups.html` is that generated
 bundle (2.5 MB, editor plus artboard sources), and is gitignored.
 
+## Reviewing
+
+The reviewers in `.claude/agents/` exist because an external reviewer found a gap — the whole lifecycle of creating, changing and destroying Goals — that a general "review this" pass had not. They are versioned with the source so the review dimensions don't depend on what anyone remembers to ask for on the day. Run one with `@lifecycle-reviewer PRD.md and mocks/`, or by name from the agent picker.
+
+| Agent | Finds |
+|---|---|
+| `lifecycle-reviewer` | entities with no route to create, change kind, destroy or restore; unstated cascades |
+| `principle-auditor` | violations of the PRD's principles and `Never` clauses; tallies, nags, gamification |
+| `traceability-reviewer` | coverage claims that aren't true; use cases with no mock or test |
+| `edge-state-reviewer` | first run, empty, singular, enormous, failed and stale states |
+| `contract-reviewer` | boundaries with no executable test; duplicated truth; unenforced layering |
+
+For implementation, after the code exists. These encode what `DESIGN.md` promised, which a general reviewer cannot know — use the built-in `/code-review` for the general correctness and simplification pass, and `/security-review` at the Cloud Run boundary rather than now.
+
+| Agent | Finds |
+|---|---|
+| `purity-reviewer` | non-determinism, input mutation, logic leaking into store adapters |
+| `mutation-reviewer` | reducer vs. the PRD's stated invariants and cascades |
+| `view-model-reviewer` | product rules leaking into components; model fields the principles forbid |
+| `migration-reviewer` | schema changes with no migration, no prior-version fixture, or silent data loss |
+| `test-quality-reviewer` | tests that cannot fail, and `Never` clauses asserted nowhere |
+
 ## Status
 
-PRD and mockups are settled. Design doc next: data model and JSON schema, view state, and the localStorage → Firestore migration path.
+PRD, mockups, design doc and roadmap are settled. Implementation starts at M0 (`ROADMAP.md`).
 
 v1 is a static single-page app with state in browser `localStorage`, hostable on GitHub Pages or run locally, desktop only, with JSON export/import as the durability story. Later: Cloud Run + Firestore. The data model is designed so that migration is a persistence swap rather than a rewrite.

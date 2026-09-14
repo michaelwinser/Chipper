@@ -124,6 +124,44 @@ A Swimlane with nothing starred shows a single line at rest ("1 goal, nothing pr
 
 **Overload is a layout consequence, not a warning.** The app has a fixed amount of room and gives it to whatever is starred. Star four things and each one shows the Tasks you'd actually do next. Star thirteen and there is no room left for Task lists — cards degrade to bare titles, lanes wrap onto second rows, and the page stops fitting on one screen. The app never counts priorities at the user or objects. The calm simply disappears, which is the honest signal. This is the whole of v1's load detection (§8.2).
 
+### 5.8 Lifecycle — how things come into and go out of existence
+
+#### Creating
+- **Swimlane:** "+ Swimlane" at the foot of the board. Infrequent, so it sits at the bottom of the thing it affects rather than in a settings screen.
+- **Goal:** three one-step routes — "+ Add a goal" at the end of any lane; quick capture with a Swimlane destination and the "as a goal" toggle; or promotion out of The Pile (UC-1040).
+- **Plan / Task:** from the Goal or Plan they belong to, or by capture.
+
+#### The ladder
+Anything can change what it is, in either direction, without losing itself:
+
+| Move | Meaning |
+|---|---|
+| Task → Plan | "this is too big" — the signature move (UC-2050) |
+| Plan → Goal | "this isn't a step toward something — it *is* the outcome" |
+| Task → Goal | the same, from one rung lower; a shortcut, less common |
+| Goal → Plan | the inverse — this turned out to be part of a bigger goal |
+
+One mechanism, not four. Title, notes, deadline, star and children all carry over; nothing is deleted and nothing is retyped.
+
+#### The four exits
+In the order you will want them:
+
+| Exit | When | What happens |
+|---|---|---|
+| **Done** | it's finished | stays under its Goal as progress (§5.4) |
+| **Send to the Pile** | not now | leaves the board, no guilt, reversible (UC-1060) |
+| **Archive** | it's over — finished, or abandoned wholesale | leaves the board, stays readable, restorable |
+| **Delete** | it was a mistake or a duplicate | actually destroys; always says what goes |
+
+**Archive** applies to **Goals only**; their Plans and Tasks go with them. A Task you don't want is done, piled, or deleted — a fourth state on a thing whose virtue is having two would be a regression. An archived Goal carries a date and nothing else: **no "abandoned" marker, no "incomplete" badge, no count of what was left**. Archiving an unfinished Goal must feel identical to archiving a finished one.
+
+#### Cascade rules
+- **Deleting a Goal** destroys its Plans and Tasks, completed ones included. The confirmation states the counts and **offers Archive beside it** — the destructive path always presents the non-destructive one.
+- **Deleting a Plan** promotes its Tasks up to the Plan's parent rather than destroying them. Breaking down is reversible; un-breaking-down should not cost you the work. "Delete its tasks too" exists but is not the default.
+- **Deleting a Swimlane** requires a destination for anything inside it — another Swimlane, or The Pile. There is no silent cascade.
+- **Archiving** removes any priority stars pointing into the Goal. Restoring does not bring them back; priorities are a current choice, not history (§5.6).
+- **Restoring** puts a Goal back in its Swimlane. If that Swimlane is gone, restore asks which one.
+
 ## 6. Primary flows
 
 ### 6.1 Plan the week (the ritual)
@@ -155,7 +193,7 @@ A Task's size is its declared box. The app does **not** run a timer or track tha
 | 1 | Create/edit/delete Swimlanes, Goals, Plans (nested), Tasks |
 | 2 | Task sizing S/M/L; done/not-done |
 | 3 | Optional deadlines on Goals, Plans, Tasks |
-| 4 | Promote Task → Plan (non-destructive) |
+| 4 | The ladder: Task ↔ Plan ↔ Goal in either direction, non-destructive |
 | 5 | Swimlane browser: calm overview, drill into a Swimlane or Goal |
 | 6 | Star priorities (Goal/Plan/Task) into a single current set; explicit "set new priorities" sweep with per-item keep |
 | 7 | The one view: focus toggle (Priorities / Everything), size lens (Any/S/M/L), per-swimlane collapse, card-renders-by-star-level, complete in place |
@@ -163,6 +201,7 @@ A Task's size is its declared box. The app does **not** run a timer or track tha
 | 9 | The Pile: global list, hashtags, promote out, send to |
 | 10 | Done work discoverable under its Goal/Plan (progress visible, celebratory not accusatory) |
 | 10a | "Coming up" deadline band on the Set-priorities view only (see §8.2) |
+| 10b | Lifecycle: create a Goal from the board or from capture; archive and restore Goals; delete with stated cascade |
 | 11 | JSON export / import (full state, human-readable) |
 | 12 | Local persistence (browser localStorage), single page app, works offline / from file:// or GitHub Pages |
 
@@ -209,10 +248,13 @@ A Task's size is its declared box. The app does **not** run a timer or track tha
 | D8 | Where can a deadline reach the user? | **Only in "Coming up" on the Set-priorities view.** That is the moment the user has asked to look ahead. Everywhere else, dates are shown when looked at, never raised. |
 | D9 | Keep the size lens if it goes unused? | **Ship it, then find out.** It is four chips over an existing view — cheap to build, cheap to delete, and it cannot be evaluated in the abstract. |
 
+| D10 | Do completed Goals leave the Swimlane view? | **Yes — via Archive, and only when the user says so** (§5.8). The app never archives anything on its own; a Goal with every Task done sits there looking finished until you decide it's over. Archive covers the abandoned case identically, with no marker distinguishing the two. |
+| D11 | Does deleting a Plan delete its Tasks? | **No — they move up to the Plan's parent.** Breaking down is reversible, so un-breaking-down should not destroy work. Deleting the Tasks too is available and explicit. |
+| D12 | Is Goal creation its own flow? | **No — it is the ladder plus two shortcuts.** Promotion already exists for Task → Plan and Pile → anything; Goal creation is the same mechanism one rung up, plus an in-lane "+ Add a goal" and an "as a goal" toggle on capture. |
+
 ### Still open
 
-1. **Archive:** do completed Goals leave the Swimlane view, and when?
-2. **Recurring work:** weekly invoicing and similar patterns have no v1 answer. Watch whether the Plan-with-dated-sub-Plans pattern is sufficient.
+1. **Recurring work:** weekly invoicing and similar patterns have no v1 answer. Watch whether the Plan-with-dated-sub-Plans pattern is sufficient.
 3. **Staleness surfacing:** metadata is captured in v1; the helpful (non-punitive) presentation is undesigned.
 
 ## 11. Use cases
@@ -245,7 +287,25 @@ Pre: Pile contains "look into a new dentist". Do: mark done from The Pile. Then:
 ### UC-2xxx — Structure
 
 **UC-2010 — Create a Swimlane**
-Do: create Swimlane "Work". Then: it appears in the Swimlane view, empty, with an obvious affordance to add a first Goal.
+Do: use "+ Swimlane" at the foot of the board. Then: it appears as a lane, empty, with an obvious affordance to add a first Goal. Never: a settings screen, a modal wizard, or a required colour choice.
+
+**UC-2011 — Rename a Swimlane**
+Do: click the lane name and type. Then: it renames in place, immediately, with no save button. Everything in it is unaffected.
+
+**UC-2012 — Reorder Swimlanes**
+Do: drag a lane by its name. Then: the order persists. Order is the user's, never computed from activity or counts.
+
+**UC-2013 — Delete an empty Swimlane**
+Pre: Swimlane "Fun" with nothing in it. Do: delete. Then: one confirmation, it is gone.
+
+**UC-2014 — Delete a Swimlane that has contents**
+Pre: Swimlane "Work" with 4 Goals and 2 loose Tasks. Do: delete. Then: the app **requires a destination** — move everything to another Swimlane, or send it all to The Pile — before anything is removed. Never: a silent cascade; an offer to delete the contents as the default.
+
+**UC-2025 — Create a Goal from the board**
+Pre: Swimlane "Health" visible. Do: "+ Add a goal" at the end of the lane, type a title, Enter. Then: the Goal exists in that lane with no Plans, no Tasks and no deadline, and the absence of all three is not flagged as incomplete. Never: leaving the board to do it.
+
+**UC-2026 — Capture straight into a Goal**
+Do: capture "get the house ready to sell", choose Swimlane "House", toggle to **as a goal**, Enter. Then: a Goal is created in that lane rather than a Task. The toggle appears only once a Swimlane destination is chosen — The Pile has no such distinction.
 
 **UC-2020 — Create a Goal in a Swimlane**
 Pre: Swimlane "Work". Do: add Goal "Catch up on invoicing", no deadline. Then: Goal appears under Work with zero Plans and zero Tasks; the absence of a deadline is not flagged as incomplete.
@@ -259,6 +319,15 @@ Pre: Goal "Catch up on invoicing". Do: add Plan "Invoice one past month per week
 **UC-2050 — Break a Task down (promote Task → Plan)** *(signature interaction)*
 Pre: Task "write the PRD" (size L) under Goal "Ship Chipper". Do: "this is too big" → the Task becomes a Plan of the same name → add Tasks "interview", "draft", "review". Then: the Plan retains the original title, notes and links; its 3 Tasks are open; nothing was deleted; the item's place in the hierarchy is unchanged. Sub-case: this works identically for a Task that is currently prioritized (priority transfers to the new Plan) and for one worked on earlier.
 
+**UC-2057 — Promote a Plan to a Goal**
+Pre: Plan "Clear the back wall" under Goal "Sort out the garage". Do: "this isn't part of something bigger". Then: it becomes a Goal in the same Swimlane, keeping its title, notes, deadline, star and every child Task and sub-Plan. Its former parent Goal loses it and its counts update. Nothing is retyped and nothing is deleted.
+
+**UC-2058 — Promote a Task to a Goal**
+Pre: loose Task "Sort out the garage" in Swimlane Family. Do: promote to Goal. Then: it becomes an empty Goal in that Swimlane carrying its title, notes, deadline and star. Sub-case: a Task under a Plan can do this too and is detached from that Plan.
+
+**UC-2059 — Demote a Goal to a Plan**
+Pre: Goal "Book the flights" that turns out to be part of "Plan the December trip". Do: demote, choosing the target Goal. Then: it becomes a Plan under that Goal with all its children intact, and leaves the lane as a top-level item.
+
 **UC-2060 — Nest a sub-Plan**
 Pre: Plan "Invoice one past month per week". Do: add sub-Plan "March". Then: nesting renders legibly at depth 2.
 
@@ -271,8 +340,23 @@ Pre: Swimlane "Work" with 3 active Goals. Do: add a 4th. Then: it is created; th
 **UC-2090 — Set an optional deadline**
 Pre: Goal "Get the house ready to sell". Do: set deadline 2026-11-30. Then: the date is shown on the Goal; open Tasks under it acquire no due dates of their own.
 
-**UC-2100 — Edit and delete**
-Do: rename any item; delete a Plan containing Tasks. Then: rename is inline and immediate; delete asks once and states what else it removes.
+**UC-2100 — Rename anything**
+Do: click the title of a Swimlane, Goal, Plan or Task and type. Then: inline, immediate, no save button, no dialog.
+
+**UC-2105 — Delete a Goal**
+Pre: Goal "Rewrite the onboarding docs" with 2 Plans, 9 Tasks, 3 of them done. Do: delete. Then: the confirmation states exactly what goes — "2 plans and 9 tasks, including 3 you've completed" — and **offers Archive beside it as an equal choice**. Confirming destroys all of it. Never: a delete path that does not show the archive alternative.
+
+**UC-2106 — Delete a Plan**
+Pre: Plan "Build the prototype" with 5 Tasks. Do: delete. Then: **the Tasks move up to the Plan's parent**, keeping their sizes, stars and done state; only the Plan is destroyed. "Delete its tasks too" is offered but is not the default.
+
+**UC-2130 — Archive a Goal**
+Pre: Goal "Catch up on invoicing", 6 of 7 Tasks done. Do: archive. Then: it leaves the board with its Plans and Tasks, any priority stars pointing into it are cleared, and it is readable in the Archive carrying a date. Sub-case: archiving a Goal with **nothing** done produces an identical result — same copy, same styling, no marker distinguishing abandoned from finished. Never: an "incomplete" badge, a completion percentage, or a count of what was left undone.
+
+**UC-2131 — The Archive**
+Do: open the Archive. Then: archived Goals, most recent first, each showing its Swimlane, its title and the date archived. Never: a tally of abandoned work, a "you archived 9 goals this year" summary, or sorting that ranks finished above unfinished.
+
+**UC-2132 — Restore from the Archive**
+Do: restore a Goal. Then: it returns to its Swimlane with its Plans and Tasks and done history intact, and **unstarred** — priorities are a current choice, not history. Sub-case: if its Swimlane no longer exists, restore asks which one to put it in rather than failing or inventing one.
 
 ### UC-3xxx — Prioritizing
 
@@ -347,7 +431,7 @@ Do: make changes, close the browser, reopen. Then: state is intact.
 
 ## 12. Mockups
 
-Ten artboards under `mocks/`, one `.dc.html` file each, laid out by `canvas.json`.
+Twelve artboards under `mocks/`, one `.dc.html` file each, laid out by `canvas.json`.
 
 | Artboard | Shows | Use cases |
 |---|---|---|
@@ -361,6 +445,8 @@ Ten artboards under `mocks/`, one `.dc.html` file each, laid out by `canvas.json
 | `QuickCapture` | capture overlay | UC-1010, 1030 |
 | `BreakDown` | Task → Plan, and the three outs | UC-2050, 4050 |
 | `ThePile` | the global backlog | UC-1040, 1050, 1070 |
+| `Lifecycle` | creating a Goal in-lane, capture-as-goal, the ladder menu, lane rename | UC-2011, 2025, 2026, 2057–2059 |
+| `DeleteArchive` | delete with the archive alternative beside it, and the Archive view | UC-2105, 2106, 2130, 2131, 2132 |
 
 The `.dc.html` files are the source and are hand-editable; `chipper-mockups.html` is generated from them and is not source.
 

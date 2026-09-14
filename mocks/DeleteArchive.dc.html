@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #6F6860; text-decoration: none; } a:hover { color: #26231F; }
+  </style>
+</helmet>
+
+<div style="width: 1280px; height: 880px; display: flex; flex-direction: column; background: #FBF8F3; color: #26231F; overflow: hidden">
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 40px; background: #F5F1E8; border-bottom: 1px solid #E7E0D4">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#26231F" stroke="none"><rect x="4" y="4.5" width="16" height="4" rx="1.6"/><rect x="4" y="10" width="11" height="4" rx="1.6"/><rect x="4" y="15.5" width="6.5" height="4" rx="1.6"/></svg>
+    <span style="font-family: Newsreader, Georgia, serif; font-size: 18px; letter-spacing: .2px">Chipper</span>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 18px">
+      <span style="font-size: 13px; color: #6F6860">The Pile</span>
+      <div style="display: flex; align-items: center; gap: 7px; padding: 6px 12px 6px 10px; border: 1px solid #E7E0D4; border-radius: 8px; background: #FFFFFF; font-size: 12.5px; color: #4B453D">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6F6860" stroke-width="1.7" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>
+        <span>Capture</span><span style="color: #A29A8E; font-size: 11px">⌘K</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 7px; padding: 6px 12px 6px 10px; border: 1px solid #E7E0D4; border-radius: 8px; background: #FFFFFF; font-size: 12.5px; color: #4B453D">
+        <svg width="13" height="13" style="flex: none" viewBox="0 0 24 24" fill="#B4462F" stroke="none"><path d="M12 3.2l2.75 5.7 6.25.88-4.5 4.4 1.06 6.22L12 17.44l-5.56 2.94 1.06-6.22-4.5-4.4 6.25-.88z"/></svg><span>Set priorities</span>
+      </div>
+    </div>
+  </header>  <main style="flex: 1; min-width: 0; padding: 30px 40px; display: flex; flex-direction: column; gap: 24px">
+    <div style="max-width: 860px; display: flex; flex-direction: column; gap: 9px">
+      <h1 style="margin: 0; font-family: Newsreader, Georgia, serif; font-weight: 400; font-size: 30px; line-height: 1.2">Getting things out of the way</h1>
+      <p style="margin: 0; font-size: 14px; color: #8A8279; line-height: 1.55">Four exits, and destroying things is the last of them. The delete path always shows the archive alternative beside it, in the same dialog, reading first.</p>
+    </div>
+    <div style="display: flex; gap: 30px; align-items: flex-start">
+      <div style="display: flex; flex-direction: column; gap: 22px">
+        <div style="width: 520px; display: flex; flex-direction: column; gap: 11px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: #A29A8E; font-weight: 500">Deleting a goal</span>
+        <span style="font-size: 11.5px; color: #A29A8E; line-height: 1.45">States exactly what goes, and offers archive as an equal choice. UC-2105.</span>
+      </div><div style="width: 520px; background: #FFFFFF; border: 1px solid #E7E0D4; border-radius: 10px; box-shadow: 0 1px 2px rgba(38,35,31,.04); overflow: hidden">
+        <div style="padding: 22px 24px 18px; display: flex; flex-direction: column; gap: 9px; border-bottom: 1px solid #F0EAE0">
+          <h2 style="margin: 0; font-family: Newsreader, Georgia, serif; font-weight: 400; font-size: 21px">Delete “Rewrite the onboarding docs”?</h2>
+          <p style="margin: 0; font-size: 13.5px; color: #8A8279; line-height: 1.55">This also deletes <b style="color: #4B453D">2 plans and 9 tasks</b>, including 3 you've completed. It cannot be undone.</p>
+        </div>
+        <div style="padding: 18px 24px; display: flex; flex-direction: column; gap: 10px; background: #FCFAF6">
+          <div style="display: flex; align-items: flex-start; gap: 11px">
+            <svg width="16" height="16" style="flex: none; margin-top: 2px" viewBox="0 0 24 24" fill="none" stroke="#6F6860" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5h17v3h-17z"/><path d="M5 10.5v9h14v-9"/><path d="M10 14h4"/></svg>
+            <div style="display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 13.5px; color: #26231F">Archive it instead</span>
+              <span style="font-size: 12px; color: #8A8279; line-height: 1.5">It leaves the board and keeps everything — the plans, the tasks, and the three you finished. You can put it back.</span>
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; padding: 16px 24px; border-top: 1px solid #F0EAE0">
+          <span style="font-size: 13.5px; color: #FBF8F3; background: #26231F; border-radius: 8px; padding: 10px 20px">Archive</span>
+          <span style="font-size: 13px; color: #6F6860">Cancel</span>
+          <span style="margin-left: auto; font-size: 13px; color: #B4462F; border: 1px solid #E3C4BC; border-radius: 8px; padding: 9px 16px">Delete everything</span>
+        </div>
+      </div></div>
+        <div style="width: 520px; display: flex; flex-direction: column; gap: 11px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: #A29A8E; font-weight: 500">Deleting a plan</span>
+        <span style="font-size: 11.5px; color: #A29A8E; line-height: 1.45">The tasks survive by default — un-breaking-down should not cost you the work. UC-2106.</span>
+      </div><div style="width: 520px; background: #FFFFFF; border: 1px solid #E7E0D4; border-radius: 10px; box-shadow: 0 1px 2px rgba(38,35,31,.04); overflow: hidden">
+        <div style="padding: 20px 24px 16px; display: flex; flex-direction: column; gap: 9px; border-bottom: 1px solid #F0EAE0">
+          <h2 style="margin: 0; font-family: Newsreader, Georgia, serif; font-weight: 400; font-size: 20px">Delete the plan “Build the prototype”?</h2>
+          <p style="margin: 0; font-size: 13.5px; color: #8A8279; line-height: 1.55">Its <b style="color: #4B453D">5 tasks move up</b> to “Ship Chipper v1” and keep their sizes, stars and done state. Only the plan goes.</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; padding: 15px 24px">
+          <span style="font-size: 13.5px; color: #FBF8F3; background: #26231F; border-radius: 8px; padding: 10px 20px">Delete the plan</span>
+          <span style="font-size: 13px; color: #6F6860">Cancel</span>
+          <span style="margin-left: auto; font-size: 12.5px; color: #8A8279">Delete its tasks too</span>
+        </div>
+      </div></div>
+      </div>
+      <div style="width: 610px; display: flex; flex-direction: column; gap: 11px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: #A29A8E; font-weight: 500">The Archive</span>
+          <span style="font-size: 11.5px; color: #A29A8E; line-height: 1.45">Most recent first. UC-2131, 2132.</span>
+        </div>
+        <div style="background: #FFFFFF; border: 1px solid #E7E0D4; border-radius: 10px; box-shadow: 0 1px 2px rgba(38,35,31,.04); overflow: hidden">
+        <div style="display: flex; align-items: center; gap: 11px; padding: 12px 15px; "><span style="width: 6px; height: 6px; border-radius: 50%; background: #5A7391; flex: none"></span><span style="font-size: 11px; color: #A29A8E; width: 54px">Work</span><span style="font-family: Newsreader, Georgia, serif; font-size: 15px; flex: 1">Catch up on invoicing</span><span style="font-size: 11.5px; color: #A29A8E">12 Sep</span><span style="font-size: 11.5px; color: #6F6860; border: 1px solid #E7E0D4; border-radius: 8px; padding: 4px 10px">Restore</span></div>
+        <div style="display: flex; align-items: center; gap: 11px; padding: 12px 15px; border-top: 1px solid #F0EAE0;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #7A6E9E; flex: none"></span><span style="font-size: 11px; color: #A29A8E; width: 54px">Fun</span><span style="font-family: Newsreader, Georgia, serif; font-size: 15px; flex: 1">Learn enough Spanish to be rude in it</span><span style="font-size: 11.5px; color: #A29A8E">28 Aug</span><span style="font-size: 11.5px; color: #6F6860; border: 1px solid #E7E0D4; border-radius: 8px; padding: 4px 10px">Restore</span></div>
+        <div style="display: flex; align-items: center; gap: 11px; padding: 12px 15px; border-top: 1px solid #F0EAE0;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #A0684E; flex: none"></span><span style="font-size: 11px; color: #A29A8E; width: 54px">Family</span><span style="font-family: Newsreader, Georgia, serif; font-size: 15px; flex: 1">Repaint the hallway</span><span style="font-size: 11.5px; color: #A29A8E">3 Aug</span><span style="font-size: 11.5px; color: #6F6860; border: 1px solid #E7E0D4; border-radius: 8px; padding: 4px 10px">Restore</span></div>
+        <div style="display: flex; align-items: center; gap: 11px; padding: 12px 15px; border-top: 1px solid #F0EAE0;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #5A7391; flex: none"></span><span style="font-size: 11px; color: #A29A8E; width: 54px">Work</span><span style="font-family: Newsreader, Georgia, serif; font-size: 15px; flex: 1">Get the Q2 numbers straight</span><span style="font-size: 11.5px; color: #A29A8E">19 Jul</span><span style="font-size: 11.5px; color: #6F6860; border: 1px solid #E7E0D4; border-radius: 8px; padding: 4px 10px">Restore</span></div>
+      </div>
+        <div style="font-size: 12.5px; color: #8A8279; line-height: 1.6; padding: 6px 2px">
+          Two of these were finished and two were given up on. <b style="color: #4B453D">Nothing here tells you which</b> — no badge, no percentage, no count of what was left. An archived goal carries a date and nothing else, and giving up on something looks exactly like completing it.
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+</body>
+</html>

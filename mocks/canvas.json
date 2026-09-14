@@ -79,6 +79,22 @@
       "w": 1280,
       "h": 880,
       "title": "The Pile"
+    },
+    {
+      "file": "Lifecycle.dc.html",
+      "x": 0,
+      "y": 3660,
+      "w": 1280,
+      "h": 880,
+      "title": "Making and changing things"
+    },
+    {
+      "file": "DeleteArchive.dc.html",
+      "x": 1400,
+      "y": 3660,
+      "w": 1280,
+      "h": 880,
+      "title": "Delete and Archive"
     }
   ],
   "annotations": [
@@ -151,6 +167,20 @@
       "y": -230,
       "w": 440,
       "text": "One rule for all four cases: the card is always the Goal, the star renders where you actually put it, and everything you did not star folds into a faint line. A tighter commitment takes less room on screen \u2014 which is what keeps the view honest when you star a dozen things."
+    },
+    {
+      "id": "n-life",
+      "x": 0,
+      "y": 3470,
+      "w": 440,
+      "text": "How things are made and how they change level \u2014 UC-2011, 2012, 2025, 2026, 2057, 2059. The ladder is one mechanism, not four: a task that turns out to be an outcome climbs, a goal that turns out to be a step descends, and everything it carries comes with it."
+    },
+    {
+      "id": "n-del",
+      "x": 1400,
+      "y": 3470,
+      "w": 440,
+      "text": "The four exits, and the two dialogs that matter \u2014 UC-2105, 2106, 2130, 2131, 2132. Delete always shows Archive beside it, reading first. In the Archive, two of those goals were finished and two were abandoned, and nothing on screen tells you which."
     }
   ],
   "launch": {
