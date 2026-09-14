@@ -1,0 +1,159 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 880,
+      "title": "The view \u2014 4 priorities"
+    },
+    {
+      "file": "Overloaded.dc.html",
+      "x": 1400,
+      "y": 0,
+      "w": 1280,
+      "h": 1180,
+      "title": "The view \u2014 13 priorities"
+    },
+    {
+      "file": "SizeLens.dc.html",
+      "x": 2800,
+      "y": 0,
+      "w": 1280,
+      "h": 880,
+      "title": "Size lens \u2014 S"
+    },
+    {
+      "file": "StarDepth.dc.html",
+      "x": 4200,
+      "y": 0,
+      "w": 1280,
+      "h": 880,
+      "title": "Wherever you put the star"
+    },
+    {
+      "file": "Everything.dc.html",
+      "x": 0,
+      "y": 1420,
+      "w": 1280,
+      "h": 880,
+      "title": "Everything"
+    },
+    {
+      "file": "Priorities.dc.html",
+      "x": 1400,
+      "y": 1420,
+      "w": 1280,
+      "h": 880,
+      "title": "Set new priorities"
+    },
+    {
+      "file": "GoalDetail.dc.html",
+      "x": 2800,
+      "y": 1420,
+      "w": 1280,
+      "h": 880,
+      "title": "Goal detail"
+    },
+    {
+      "file": "QuickCapture.dc.html",
+      "x": 0,
+      "y": 2540,
+      "w": 1280,
+      "h": 880,
+      "title": "Quick capture"
+    },
+    {
+      "file": "BreakDown.dc.html",
+      "x": 1400,
+      "y": 2540,
+      "w": 1280,
+      "h": 880,
+      "title": "Break it down"
+    },
+    {
+      "file": "ThePile.dc.html",
+      "x": 2800,
+      "y": 2540,
+      "w": 1280,
+      "h": 880,
+      "title": "The Pile"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "n-main",
+      "x": 0,
+      "y": -230,
+      "w": 440,
+      "text": "The one view. Four priorities, starred at three different levels \u2014 a goal, a plan inside a goal, a task inside a goal. Each card is the Goal for context; the star sits where you put it. Health is a lane at rest: it still exists, it just isn't asking for anything."
+    },
+    {
+      "id": "n-over",
+      "x": 1400,
+      "y": -230,
+      "w": 440,
+      "text": "Same view, 13 priorities. The app never warns you. It simply can't give 13 things room, so the tasks fall out of the cards, Work wraps onto a second row, and the page stops fitting on one screen. Overload is something you SEE, not something you're told."
+    },
+    {
+      "id": "n-size",
+      "x": 2800,
+      "y": -230,
+      "w": 440,
+      "text": "\"I have fifteen minutes.\" The size lens is a filter on the same view, not a mode \u2014 nothing moves, the tasks that don't fit just fall away. This is what replaced the separate Picker screen."
+    },
+    {
+      "id": "n-every",
+      "x": 0,
+      "y": 1230,
+      "w": 440,
+      "text": "The other half of the toggle. Unprioritised goals come back as quiet outlined cards \u2014 present, legible, not competing. Going looking for work is one click, not a different place."
+    },
+    {
+      "id": "n-prio",
+      "x": 1400,
+      "y": 1230,
+      "w": 440,
+      "text": "Set new priorities \u2014 UC-3030, and the only sanctioned nudge in the app. \"Coming up\" shows what has a deadline, how far out it is, and what's left; you can star straight from it. Nowhere else does the app raise a date on its own."
+    },
+    {
+      "id": "n-goal",
+      "x": 2800,
+      "y": 1230,
+      "w": 440,
+      "text": "Goal detail \u2014 UC-2030, UC-2040, UC-5010, UC-1060. Unchanged from the last round apart from the new shell."
+    },
+    {
+      "id": "n-cap",
+      "x": 0,
+      "y": 2350,
+      "w": 440,
+      "text": "Quick capture \u2014 UC-1010, UC-1030. One line, destination optional, defaults to The Pile."
+    },
+    {
+      "id": "n-break",
+      "x": 1400,
+      "y": 2350,
+      "w": 440,
+      "text": "Break it down \u2014 UC-2050, and all three outs of UC-4050 in the footer."
+    },
+    {
+      "id": "n-pile",
+      "x": 2800,
+      "y": 2350,
+      "w": 440,
+      "text": "The Pile \u2014 UC-1040, UC-1050, UC-1070. Reachable from the top bar, with no count anywhere to pull at you."
+    },
+    {
+      "id": "n-depth",
+      "x": 4200,
+      "y": -230,
+      "w": 440,
+      "text": "One rule for all four cases: the card is always the Goal, the star renders where you actually put it, and everything you did not star folds into a faint line. A tighter commitment takes less room on screen \u2014 which is what keeps the view honest when you star a dozen things."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

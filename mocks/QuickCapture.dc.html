@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #6F6860; text-decoration: none; } a:hover { color: #26231F; }
+  </style>
+</helmet>
+
+<div style="position: relative; width: 1280px; height: 880px; background: #FBF8F3; color: #26231F; overflow: hidden">
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column">
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 40px; background: #F5F1E8; border-bottom: 1px solid #E7E0D4">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#26231F" stroke="none"><rect x="4" y="4.5" width="16" height="4" rx="1.6"/><rect x="4" y="10" width="11" height="4" rx="1.6"/><rect x="4" y="15.5" width="6.5" height="4" rx="1.6"/></svg>
+    <span style="font-family: Newsreader, Georgia, serif; font-size: 18px; letter-spacing: .2px">Chipper</span>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 18px">
+      <span style="font-size: 13px; color: #6F6860">The Pile</span>
+      <div style="display: flex; align-items: center; gap: 7px; padding: 6px 12px 6px 10px; border: 1px solid #E7E0D4; border-radius: 8px; background: #FFFFFF; font-size: 12.5px; color: #4B453D">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6F6860" stroke-width="1.7" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>
+        <span>Capture</span><span style="color: #A29A8E; font-size: 11px">⌘K</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 7px; padding: 6px 12px 6px 10px; border: 1px solid #E7E0D4; border-radius: 8px; background: #FFFFFF; font-size: 12.5px; color: #4B453D">
+        <svg width="13" height="13" style="flex: none" viewBox="0 0 24 24" fill="#B4462F" stroke="none"><path d="M12 3.2l2.75 5.7 6.25.88-4.5 4.4 1.06 6.22L12 17.44l-5.56 2.94 1.06-6.22-4.5-4.4 6.25-.88z"/></svg><span>Set priorities</span>
+      </div>
+    </div>
+  </header>  <main style="flex: 1; min-width: 0; padding: 28px 40px; display: flex; flex-direction: column; gap: 22px">
+    <div style="display: flex; align-items: center; gap: 14px">
+      <h1 style="margin: 0; font-family: Newsreader, Georgia, serif; font-weight: 400; font-size: 30px; line-height: 1.2">Swimlanes</h1>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 10px">
+        <div style="display: flex; gap: 2px; padding: 3px; background: #F2EDE3; border: 1px solid #E7E0D4; border-radius: 8px"><span style="font-size: 12px; padding: 5px 12px; border-radius: 6px; background: #FFFFFF; color: #26231F; font-weight: 500; box-shadow: 0 1px 2px rgba(38,35,31,.07)">Priorities</span><span style="font-size: 12px; padding: 5px 12px; border-radius: 6px; color: #8A8279">Everything</span></div>
+        <div style="display: flex; gap: 2px; padding: 3px; background: #F2EDE3; border: 1px solid #E7E0D4; border-radius: 8px"><span style="font-size: 12px; padding: 5px 12px; border-radius: 6px; background: #FFFFFF; color: #26231F; font-weight: 500; box-shadow: 0 1px 2px rgba(38,35,31,.07)">Any size</span><span style="font-size: 12px; padding: 5px 12px; border-radius: 6px; color: #8A8279">S · 15m</span><span style="font-size: 12px; padding: 5px 12px; border-radius: 6px; color: #8A8279">M · 1–2h</span><span style="font-size: 12px; padding: 5px 12px; border-radius: 6px; color: #8A8279">L · ½ day</span></div>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 24px">
+<section style="display: flex; flex-direction: column; gap: 9px">
+        <div style="display: flex; align-items: center; gap: 9px">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #5A7391"></span>
+          <span style="font-family: Newsreader, Georgia, serif; font-size: 16.5px">Work</span>
+        </div>
+        <div style="display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap"><div style="width: 296px; background: #FFFFFF; border: 1px solid #E7E0D4; border-radius: 10px; box-shadow: 0 1px 2px rgba(38,35,31,.04); padding: 13px 14px; display: flex; flex-direction: column; gap: 6px">
+          <div style="display: flex; gap: 8px; align-items: flex-start">
+            <span style="font-family: Newsreader, Georgia, serif; font-size: 16px; line-height: 1.25; flex: 1">Catch up on invoicing</span><svg width="14" height="14" style="flex: none" viewBox="0 0 24 24" fill="#B4462F" stroke="none"><path d="M12 3.2l2.75 5.7 6.25.88-4.5 4.4 1.06 6.22L12 17.44l-5.56 2.94 1.06-6.22-4.5-4.4 6.25-.88z"/></svg>
+          </div>
+          <div style="display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #8A8279"><span>3 of 7 done</span></div>
+          <div style="border-top: 1px solid #F0EAE0; padding-top: 4px; margin-top: 2px"><div style="display: flex; align-items: center; gap: 9px; padding: 6px 0"><span style="width: 14px; height: 14px; border: 1.4px solid #CFC6B7; border-radius: 4px; flex: none"></span><span style="font-size: 12.5px; color: #4B453D; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Invoice May</span><span style="font-size: 10px; color: #8A8279; background: #F2EDE3; border-radius: 4px; padding: 2px 5px; font-weight: 500; flex: none">M</span></div><div style="display: flex; align-items: center; gap: 9px; padding: 6px 0"><span style="width: 14px; height: 14px; border: 1.4px solid #CFC6B7; border-radius: 4px; flex: none"></span><span style="font-size: 12.5px; color: #4B453D; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Find the missing March receipts</span><span style="font-size: 10px; color: #8A8279; background: #F2EDE3; border-radius: 4px; padding: 2px 5px; font-weight: 500; flex: none">M</span></div><div style="display: flex; align-items: center; gap: 9px; padding: 6px 0"><span style="width: 14px; height: 14px; border: 1.4px solid #CFC6B7; border-radius: 4px; flex: none"></span><span style="font-size: 12.5px; color: #4B453D; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Ask the accountant about VAT</span><span style="font-size: 10px; color: #8A8279; background: #F2EDE3; border-radius: 4px; padding: 2px 5px; font-weight: 500; flex: none">S</span></div></div></div><div style="width: 296px; background: #FFFFFF; border: 1px solid #E7E0D4; border-radius: 10px; box-shadow: 0 1px 2px rgba(38,35,31,.04); padding: 13px 14px; display: flex; flex-direction: column; gap: 6px">
+          <div style="display: flex; gap: 8px; align-items: flex-start">
+            <span style="font-family: Newsreader, Georgia, serif; font-size: 16px; line-height: 1.25; flex: 1">Ship Chipper v1</span><svg width="14" height="14" style="flex: none" viewBox="0 0 24 24" fill="#B4462F" stroke="none"><path d="M12 3.2l2.75 5.7 6.25.88-4.5 4.4 1.06 6.22L12 17.44l-5.56 2.94 1.06-6.22-4.5-4.4 6.25-.88z"/></svg>
+          </div>
+          <div style="display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #8A8279"><span>2 of 11 done</span></div>
+          <div style="border-top: 1px solid #F0EAE0; padding-top: 4px; margin-top: 2px"><div style="display: flex; align-items: center; gap: 9px; padding: 6px 0"><span style="width: 14px; height: 14px; border: 1.4px solid #CFC6B7; border-radius: 4px; flex: none"></span><span style="font-size: 12.5px; color: #4B453D; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Draft the data model</span><span style="font-size: 10px; color: #8A8279; background: #F2EDE3; border-radius: 4px; padding: 2px 5px; font-weight: 500; flex: none">M</span></div><div style="display: flex; align-items: center; gap: 9px; padding: 6px 0"><span style="width: 14px; height: 14px; border: 1.4px solid #CFC6B7; border-radius: 4px; flex: none"></span><span style="font-size: 12.5px; color: #4B453D; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Sketch the swimlane view</span><span style="font-size: 10px; color: #8A8279; background: #F2EDE3; border-radius: 4px; padding: 2px 5px; font-weight: 500; flex: none">L</span></div><div style="padding: 5px 0 0 23px; font-size: 11.5px; color: #A29A8E">4 more</div></div></div><div style="display: flex; align-items: center; gap: 7px; align-self: center; padding: 8px 2px; font-size: 12.5px; color: #A29A8E"><span>2 more in Work</span><svg width="13" height="13" style="flex: none" viewBox="0 0 24 24" fill="none" stroke="#C3BAAB" stroke-width="1.7" stroke-linecap="round"><path d="M9.5 5.5l6.5 6.5-6.5 6.5"/></svg></div></div>
+      </section>
+<section style="display: flex; flex-direction: column; gap: 9px">
+        <div style="display: flex; align-items: center; gap: 9px">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #A0684E"></span>
+          <span style="font-family: Newsreader, Georgia, serif; font-size: 16.5px">Family</span>
+        </div>
+        <div style="display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap"><div style="width: 296px; background: #FFFFFF; border: 1px solid #E7E0D4; border-radius: 10px; box-shadow: 0 1px 2px rgba(38,35,31,.04); padding: 13px 14px; display: flex; flex-direction: column; gap: 6px">
+          <div style="display: flex; gap: 8px; align-items: flex-start">
+            <span style="font-family: Newsreader, Georgia, serif; font-size: 16px; line-height: 1.25; flex: 1">Plan the December trip</span><svg width="14" height="14" style="flex: none" viewBox="0 0 24 24" fill="#B4462F" stroke="none"><path d="M12 3.2l2.75 5.7 6.25.88-4.5 4.4 1.06 6.22L12 17.44l-5.56 2.94 1.06-6.22-4.5-4.4 6.25-.88z"/></svg>
+          </div>
+          <div style="display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #8A8279"><span>2 of 6 done</span><span style="color: #D6CDBE">·</span><span>1 Dec</span></div>
+          <div style="border-top: 1px solid #F0EAE0; padding-top: 4px; margin-top: 2px"><div style="display: flex; align-items: center; gap: 9px; padding: 6px 0"><span style="width: 14px; height: 14px; border: 1.4px solid #CFC6B7; border-radius: 4px; flex: none"></span><span style="font-size: 12.5px; color: #4B453D; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Book the flights</span><span style="font-size: 10px; color: #8A8279; background: #F2EDE3; border-radius: 4px; padding: 2px 5px; font-weight: 500; flex: none">M</span></div><div style="display: flex; align-items: center; gap: 9px; padding: 6px 0"><span style="width: 14px; height: 14px; border: 1.4px solid #CFC6B7; border-radius: 4px; flex: none"></span><span style="font-size: 12.5px; color: #4B453D; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Ask Ruth about the dates</span><span style="font-size: 10px; color: #8A8279; background: #F2EDE3; border-radius: 4px; padding: 2px 5px; font-weight: 500; flex: none">S</span></div></div></div><div style="display: flex; align-items: center; gap: 7px; align-self: center; padding: 8px 2px; font-size: 12.5px; color: #A29A8E"><span>1 more in Family</span><svg width="13" height="13" style="flex: none" viewBox="0 0 24 24" fill="none" stroke="#C3BAAB" stroke-width="1.7" stroke-linecap="round"><path d="M9.5 5.5l6.5 6.5-6.5 6.5"/></svg></div></div>
+      </section>
+<section style="display: flex; flex-direction: column; gap: 9px">
+        <div style="display: flex; align-items: center; gap: 9px">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #5E8A72"></span>
+          <span style="font-family: Newsreader, Georgia, serif; font-size: 16.5px">Health</span>
+        </div>
+        <div style="display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap"><div style="display: flex; align-items: center; gap: 7px; align-self: center; padding: 8px 2px; font-size: 12.5px; color: #A29A8E">1 goal, nothing prioritised right now<svg width="13" height="13" style="flex: none" viewBox="0 0 24 24" fill="none" stroke="#C3BAAB" stroke-width="1.7" stroke-linecap="round"><path d="M9.5 5.5l6.5 6.5-6.5 6.5"/></svg></div></div>
+      </section>
+<section style="display: flex; flex-direction: column; gap: 9px">
+        <div style="display: flex; align-items: center; gap: 9px">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #8A8279"></span>
+          <span style="font-family: Newsreader, Georgia, serif; font-size: 16.5px">Stuff</span>
+        </div>
+        <div style="display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap"><div style="display: flex; align-items: center; gap: 9px; background: #FFFFFF; border: 1px solid #E7E0D4; border-radius: 8px; padding: 9px 13px; font-size: 13px; "><span style="width: 16px; height: 16px; border: 1.4px solid #CFC6B7; border-radius: 4px; flex: none"></span><span>Fix the back gate</span><svg width="13" height="13" style="flex: none" viewBox="0 0 24 24" fill="#B4462F" stroke="none"><path d="M12 3.2l2.75 5.7 6.25.88-4.5 4.4 1.06 6.22L12 17.44l-5.56 2.94 1.06-6.22-4.5-4.4 6.25-.88z"/></svg><span style="font-size: 10px; color: #8A8279; background: #F2EDE3; border-radius: 4px; padding: 2px 5px; font-weight: 500; flex: none">S</span></div><div style="display: flex; align-items: center; gap: 7px; align-self: center; padding: 8px 2px; font-size: 12.5px; color: #A29A8E"><span>2 more in Stuff</span><svg width="13" height="13" style="flex: none" viewBox="0 0 24 24" fill="none" stroke="#C3BAAB" stroke-width="1.7" stroke-linecap="round"><path d="M9.5 5.5l6.5 6.5-6.5 6.5"/></svg></div></div>
+      </section>
+    </div>
+  </main>
+  </div>
+  <div style="position: absolute; inset: 0; background: rgba(43, 38, 32, .40)"></div>
+  <div style="position: absolute; left: 50%; top: 190px; transform: translateX(-50%); width: 604px; background: #FFFFFF; border: 1px solid #E7E0D4; border-radius: 12px; box-shadow: 0 18px 44px rgba(38,35,31,.22); overflow: hidden">
+    <div style="display: flex; align-items: center; gap: 13px; padding: 20px 22px">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#B0A79A" stroke-width="1.7" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>
+      <span style="font-size: 18px">#house replace the gutters</span>
+      <span style="width: 1.5px; height: 21px; background: #26231F; opacity: .55"></span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 9px; padding: 13px 22px; border-top: 1px solid #F0EAE0; background: #FCFAF6">
+      <span style="font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: #A29A8E; font-weight: 500; margin-right: 3px">Put it in</span><span style="font-size: 13px; padding: 8px 15px; border-radius: 999px; background: #26231F; color: #FBF8F3; border: 1px solid #26231F">The Pile</span><span style="font-size: 13px; padding: 8px 15px; border-radius: 999px; background: #FFFFFF; color: #6F6860; border: 1px solid #E7E0D4">Work</span><span style="font-size: 13px; padding: 8px 15px; border-radius: 999px; background: #FFFFFF; color: #6F6860; border: 1px solid #E7E0D4">Family</span><span style="font-size: 13px; padding: 8px 15px; border-radius: 999px; background: #FFFFFF; color: #6F6860; border: 1px solid #E7E0D4">Health</span><span style="font-size: 13px; padding: 8px 15px; border-radius: 999px; background: #FFFFFF; color: #6F6860; border: 1px solid #E7E0D4">Fun</span><span style="font-size: 13px; padding: 8px 15px; border-radius: 999px; background: #FFFFFF; color: #6F6860; border: 1px solid #E7E0D4">Stuff</span>
+      <span style="margin-left: auto; font-size: 11.5px; color: #A29A8E">↵</span>
+    </div>
+  </div>
+  <div style="position: absolute; left: 50%; top: 346px; transform: translateX(-50%); width: 604px; font-size: 12px; color: #EFE9DE; opacity: .85">Tags like #house are optional. So is everything else.</div>
+</div>
+</x-dc>
+</body>
+</html>
