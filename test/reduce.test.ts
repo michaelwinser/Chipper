@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { reduce } from '../src/domain/reduce'
+import { mainState } from '../src/fixtures/states'
 import { RuleError } from '../src/domain/errors'
 import { MUTATION_KINDS, type Mutation } from '../src/domain/mutations'
 import { emptyState, progressOf, type State } from '../src/domain/state'
@@ -231,5 +232,153 @@ describe('UC-4040 — completing a task', () => {
     expect(Object.keys(state.tasks['t1']!)).not.toContain('duration')
     expect(Object.keys(state.tasks['t1']!)).not.toContain('startedAt')
     expect(Object.keys(state.tasks['t1']!)).not.toContain('timeSpent')
+  })
+})
+
+describe('an id is unique across the whole document, not within a collection', () => {
+  /**
+   * DESIGN.md §5.3 states this and `idTaken` is meant to be it. The rule matters because
+   * invariant 6 (a pile item is never also an entity) depends on it, and because the
+   * board keys rows by id alone — two things sharing one makes a row vanish.
+   *
+   * Every one of these passed before: `idTaken` did not look at swimlanes, and
+   * `createSwimlane` did not call it. The generator cannot reach it either, since its id
+   * prefixes never collide by construction — so this is hand-written on purpose.
+   */
+  const lane = (id: string) =>
+    ({ kind: 'createSwimlane', id, name: 'Somewhere', color: '#333', at: AT }) as const
+  const goal = (id: string) =>
+    ({ kind: 'createGoal', id, swimlaneId: 'l-work', title: 'A goal', at: AT }) as const
+
+  it.each([
+    ['a swimlane taking an existing goal’s id', lane('g-invoicing')],
+    ['a swimlane taking an existing task’s id', lane('t-receipts')],
+    ['a goal taking an existing swimlane’s id', goal('l-work')],
+    [
+      'a plan taking an existing swimlane’s id',
+      {
+        kind: 'createPlan' as const,
+        id: 'l-work',
+        parent: { type: 'goal' as const, id: 'g-invoicing' },
+        title: 'A plan',
+        at: AT,
+      },
+    ],
+    [
+      'a task taking an existing goal’s id',
+      {
+        kind: 'createTask' as const,
+        id: 'g-invoicing',
+        parent: { type: 'goal' as const, id: 'g-trip' },
+        title: 'A task',
+        size: null,
+        at: AT,
+      },
+    ],
+    [
+      'a pile item taking an existing swimlane’s id',
+      {
+        kind: 'capture' as const,
+        id: 'l-work',
+        text: 'an idea',
+        destination: { kind: 'pile' as const },
+        at: AT,
+      },
+    ],
+  ])('refuses %s', (_name, mutation) => {
+    expect(() => reduce(mainState(), mutation)).toThrow(/already exists/)
+  })
+
+  it('and a fresh id is still accepted', () => {
+    const state = reduce(mainState(), lane('l-brand-new'))
+    expect(state.swimlanes['l-brand-new']).toBeDefined()
+  })
+})
+
+describe('replaceAll holds a copy, not the caller’s document', () => {
+  it('a caller editing its own payload afterwards does not edit the state', () => {
+    // It returned `m.state` directly, so the store held the very object the mutation
+    // payload held. `purity.test.ts` is a grep and cannot see this; nothing else did.
+    const payload = mainState()
+    const after = reduce(emptyState(), { kind: 'replaceAll', state: payload, at: AT })
+
+    delete payload.goals['g-invoicing']
+    payload.priorities.push({ type: 'goal', id: 'invented' })
+    payload.swimlanes['l-work']!.name = 'Renamed behind its back'
+
+    expect(after.goals['g-invoicing']).toBeDefined()
+    expect(after.priorities.some((r) => r.id === 'invented')).toBe(false)
+    expect(after.swimlanes['l-work']?.name).toBe('Work')
+  })
+})
+
+describe('the ladder keeps createdAt on every rung, not just the one that was tested', () => {
+  const at = '2026-10-01T09:00:00.000Z'
+
+  it('task → plan', () => {
+    const before = mainState().tasks['t-receipts']!.createdAt
+    const after = reduce(mainState(), {
+      kind: 'changeLevel',
+      ref: { type: 'task', id: 't-receipts' },
+      to: 'plan',
+      newId: 'p-x',
+      at,
+    })
+    expect(after.plans['p-x']!.createdAt).toBe(before)
+  })
+
+  it('plan → goal', () => {
+    const before = mainState().plans['p-prototype']!.createdAt
+    const after = reduce(mainState(), {
+      kind: 'changeLevel',
+      ref: { type: 'plan', id: 'p-prototype' },
+      to: 'goal',
+      newId: 'g-x',
+      at,
+    })
+    expect(after.goals['g-x']!.createdAt).toBe(before)
+  })
+
+  it('goal → plan', () => {
+    const before = mainState().goals['g-garage']!.createdAt
+    const after = reduce(mainState(), {
+      kind: 'changeLevel',
+      ref: { type: 'goal', id: 'g-garage' },
+      to: 'plan',
+      newId: 'p-x',
+      parent: { type: 'goal', id: 'g-trip' },
+      at,
+    })
+    expect(after.plans['p-x']!.createdAt).toBe(before)
+  })
+
+  it('loose task → goal', () => {
+    const before = mainState().tasks['t-gate']!.createdAt
+    const after = reduce(mainState(), {
+      kind: 'changeLevel',
+      ref: { type: 'task', id: 't-gate' },
+      to: 'goal',
+      newId: 'g-x',
+      at,
+    })
+    expect(after.goals['g-x']!.createdAt).toBe(before)
+  })
+
+  it('and stamps updatedAt on the children it reparents', () => {
+    // `deletePlan`'s promote-children branch does this; `changeLevel`'s did not, and
+    // DESIGN §3.2 says the metadata is captured on everything.
+    const after = reduce(mainState(), {
+      kind: 'changeLevel',
+      ref: { type: 'goal', id: 'g-garage' },
+      to: 'plan',
+      newId: 'p-garage',
+      parent: { type: 'goal', id: 'g-trip' },
+      at,
+    })
+    const moved = Object.values(after.tasks).filter(
+      (t) => t.parent.type === 'plan' && t.parent.id === 'p-garage',
+    )
+    expect(moved.length).toBeGreaterThan(0)
+    for (const task of moved) expect(task.updatedAt).toBe(at)
   })
 })

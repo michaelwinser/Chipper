@@ -199,7 +199,13 @@ export function owningGoal(state: State, parent: Parent): Goal | null {
 }
 
 function walkUp(state: State, parent: Parent, seen: Set<string>): Goal | null {
+  // Shape-guarded, because `checkInvariants` calls this while deciding whether a document
+  // is well formed — so it is handed exactly the documents that are not. The `isRecord`
+  // guards added at M8 covered the top-level maps and not a plan whose own `parent` is
+  // null or missing, which threw a TypeError out of the import path with no message.
+  if (parent === null || typeof parent !== 'object' || typeof parent.type !== 'string') return null
   if (parent.type === 'swimlane') return null
+  if (typeof parent.id !== 'string') return null
   if (parent.type === 'goal') return state.goals[parent.id] ?? null
   if (seen.has(parent.id)) return null
   seen.add(parent.id)

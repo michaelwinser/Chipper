@@ -44,7 +44,34 @@ const sameRef = (a: Ref, b: Ref): boolean => a.type === b.type && a.id === b.id
  * and the same vocabulary is used by import and by a future server.
  */
 function idTaken(state: State, id: Id): boolean {
-  return id in state.goals || id in state.plans || id in state.tasks || id in state.pile
+  return (
+    id in state.swimlanes ||
+    id in state.goals ||
+    id in state.plans ||
+    id in state.tasks ||
+    id in state.pile
+  )
+}
+
+/**
+ * The archived goal a prospective parent sits inside, if any.
+ *
+ * The route back IN, matching the routes back out that `changeLevel` and `sendToPile`
+ * refuse. A plan or task created under an archived goal — or an idea promoted there —
+ * lands where nothing renders it: not the board, which filters archived; not the Archive,
+ * which lists goals; not the Pile, which it has left. It is gone until the goal is
+ * restored, and no invariant reports it, because the document is perfectly consistent.
+ */
+function archivedParent(state: State, parent: Parent): Goal | null {
+  if (parent.type === 'swimlane') return null
+  return archivedOwnerOf(state, { type: parent.type, id: parent.id })
+}
+
+const ARCHIVED_PARENT = 'that goal is archived — restore it before putting anything inside it'
+
+/** A record whose entries are fresh objects, so nothing is shared with the caller. */
+function copyEach<T extends object>(map: Record<Id, T>): Record<Id, T> {
+  return Object.fromEntries(Object.entries(map).map(([id, value]) => [id, { ...value }]))
 }
 
 function archivedOwnerOf(state: State, ref: Ref): Goal | null {
@@ -89,19 +116,24 @@ function dropAll(state: State, gone: { goals?: Id[]; plans?: Id[]; tasks?: Id[] 
 }
 
 /** Walks up to the swimlane something ultimately sits in. Cycle-safe (see `descendants`). */
-function swimlaneOf(state: State, parent: Parent, seen: Set<string> = new Set()): string | null {
+function swimlaneOf(state: State, parent: Parent): string | null {
+  return laneOf(state, parent, new Set())
+}
+
+/** Private, so the visited set cannot be supplied or reused — see `state.ts`. */
+function laneOf(state: State, parent: Parent, seen: Set<string>): string | null {
   if (parent.type === 'swimlane') return parent.id
   if (parent.type === 'goal') return state.goals[parent.id]?.swimlaneId ?? null
   if (seen.has(parent.id)) return null
   seen.add(parent.id)
   const plan = state.plans[parent.id]
-  return plan ? swimlaneOf(state, plan.parent, seen) : null
+  return plan ? laneOf(state, plan.parent, seen) : null
 }
 
 export function reduce(state: State, m: Mutation): State {
   switch (m.kind) {
     case 'createSwimlane': {
-      rule(!(m.id in state.swimlanes), 'duplicate-id', `swimlane ${m.id} already exists`)
+      rule(!idTaken(state, m.id), 'duplicate-id', `${m.id} already exists`)
       const order = Object.values(state.swimlanes).reduce((n, s) => Math.max(n, s.order + 1), 0)
       return {
         ...state,
@@ -171,6 +203,7 @@ export function reduce(state: State, m: Mutation): State {
       rule(!idTaken(state, m.id), 'duplicate-id', `${m.id} already exists`)
       rule(parentExists(state, m.parent), 'not-found', 'plan parent does not exist')
       rule(m.parent.type !== 'swimlane', 'bad-parent', 'a plan belongs to a goal or another plan')
+      rule(archivedParent(state, m.parent) === null, 'archived', ARCHIVED_PARENT)
       return {
         ...state,
         plans: {
@@ -191,6 +224,7 @@ export function reduce(state: State, m: Mutation): State {
     case 'createTask': {
       rule(!idTaken(state, m.id), 'duplicate-id', `${m.id} already exists`)
       rule(parentExists(state, m.parent), 'not-found', 'task parent does not exist')
+      rule(archivedParent(state, m.parent) === null, 'archived', ARCHIVED_PARENT)
       return {
         ...state,
         tasks: {
@@ -659,8 +693,13 @@ export function reduce(state: State, m: Mutation): State {
       const tasks = { ...next.tasks }
       if (m.to !== 'task') {
         const moved: Parent = { type: m.to, id: m.newId }
-        for (const child of kids.plans) plans[child.id] = { ...plans[child.id]!, parent: moved }
-        for (const child of kids.tasks) tasks[child.id] = { ...tasks[child.id]!, parent: moved }
+        // `updatedAt` too: `deletePlan`'s promote-children branch performs the identical
+        // reparent and stamps it, and DESIGN §3.2 says the metadata is captured on
+        // everything. A child that moved is a child that changed.
+        for (const child of kids.plans)
+          plans[child.id] = { ...plans[child.id]!, parent: moved, updatedAt: m.at }
+        for (const child of kids.tasks)
+          tasks[child.id] = { ...tasks[child.id]!, parent: moved, updatedAt: m.at }
       }
 
       // The star moves with the thing, in the same place in the set.
@@ -753,6 +792,10 @@ export function reduce(state: State, m: Mutation): State {
     case 'sendToPile': {
       rule(exists(state, m.ref), 'not-found', `no ${m.ref.type} ${m.ref.id}`)
       rule(m.ref.type !== 'swimlane', 'unsupported', 'a swimlane is not an idea')
+      // Rebuilt from the narrowed discriminant. `EntityRef` is one object type rather
+      // than a union, so asserting on `.type` narrows the property and not the object —
+      // `{ type: m.ref.type, id: m.ref.id }` is the `Ref` the assertion just proved.
+      const ref: Ref = { type: m.ref.type, id: m.ref.id }
       // The Pile holds a line of text, so anything with structure under it cannot go
       // there without destroying that structure. Deciding what happens to children is
       // what Archive is for (PRD §5.8) — this refuses rather than guesses.
@@ -771,6 +814,17 @@ export function reduce(state: State, m: Mutation): State {
         !(m.ref.type === 'task' && state.tasks[m.ref.id]?.done === true),
         'already-done',
         'that is already done — the Pile is for ideas, and an idea cannot be done',
+      )
+      // The SECOND side door out of the archive. `changeLevel` was closed at M8 and this
+      // was not, so DESIGN §3.3's claim that the ladder "was the one route out" was wrong
+      // when it was written: piling a task out of an archived goal destroyed the task and
+      // left a bare line in the Pile, emptying a goal the Archive still lists with its
+      // date. Not reachable from today's UI, which is exactly the argument that did not
+      // save `changeLevel` — this vocabulary is also import and a future server's API.
+      rule(
+        archivedOwnerOf(state, ref) === null,
+        'archived',
+        'that is inside an archived goal — restore it first',
       )
       rule(!idTaken(state, m.pileId), 'duplicate-id', `${m.pileId} already exists`)
 
@@ -812,19 +866,19 @@ export function reduce(state: State, m: Mutation): State {
     }
 
     case 'replaceAll':
-      // Copied, not aliased. Returning `m.state` made the store hold the very object the
-      // mutation payload holds, so a caller that kept and edited its own payload would be
-      // editing the store — and it is the one case where the reducer did not produce a
-      // fresh document. The copy is shallow, which is enough: every other mutation
-      // replaces the maps it touches rather than editing them in place.
+      // Copied all the way down, not aliased. Returning `m.state` made the store hold the
+      // very object the mutation payload holds; copying only the maps left every entity
+      // shared, so a caller that kept its payload could still rename a swimlane inside
+      // the store from the outside. This is the import path — once per file, not a hot
+      // path — and it is the one case where the reducer does not build its own document.
       return {
         ...m.state,
-        swimlanes: { ...m.state.swimlanes },
-        goals: { ...m.state.goals },
-        plans: { ...m.state.plans },
-        tasks: { ...m.state.tasks },
-        pile: { ...m.state.pile },
-        priorities: [...m.state.priorities],
+        swimlanes: copyEach(m.state.swimlanes),
+        goals: copyEach(m.state.goals),
+        plans: copyEach(m.state.plans),
+        tasks: copyEach(m.state.tasks),
+        pile: copyEach(m.state.pile),
+        priorities: m.state.priorities.map((ref) => ({ ...ref })),
       }
 
     default: {

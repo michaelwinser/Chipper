@@ -23,6 +23,7 @@ import {
 } from '../src/domain/state'
 import { buildArchive } from '../src/domain/select/archive'
 import { createLocalStore } from '../src/store/local'
+import { parseEnvelope } from '../src/domain/transfer'
 import { generateState } from './support/generate'
 
 const AT = '2026-09-15T10:00:00.000Z'
@@ -352,5 +353,65 @@ describe('it still does not throw, on the shapes that used to make it', () => {
     }
     const store = createLocalStore(storage, () => AT)
     expect(store.status.kind).toBe('blocked')
+  })
+})
+
+describe('a plan whose own parent is malformed', () => {
+  /**
+   * The shape the M8 guards missed.
+   *
+   * `isRecord` covered the five top-level maps. It did not cover a plan whose own
+   * `parent` is null or absent — `walkUp` read `parent.type` off whatever was there. The
+   * six "nonsense" states above all keep parents well formed, so none of them reached it.
+   *
+   * The store path caught the throw and showed the user a TypeError as prose; the IMPORT
+   * path did not catch it at all, so picking such a file produced an unhandled rejection
+   * and a click that did nothing.
+   */
+  const shapes: [string, State][] = [
+    [
+      'null parent, with a priority pointing at the plan',
+      {
+        ...base(),
+        plans: { p1: { ...plan('p1'), parent: null } },
+        priorities: [{ type: 'plan', id: 'p1' }],
+      },
+    ],
+    [
+      'no parent key at all',
+      {
+        ...base(),
+        plans: {
+          p1: Object.fromEntries(Object.entries(plan('p1')).filter(([k]) => k !== 'parent')),
+        },
+        priorities: [{ type: 'plan', id: 'p1' }],
+      },
+    ],
+    [
+      'a starred task whose plan ancestor has a null parent',
+      {
+        ...base(),
+        plans: { p1: { ...plan('p1'), parent: null } },
+        tasks: { t1: task('t1', { parent: { type: 'plan', id: 'p1' } }) },
+        priorities: [{ type: 'task', id: 't1' }],
+      },
+    ],
+  ] as unknown as [string, State][]
+
+  it.each(shapes)('%s is reported, not thrown on', (_name, state) => {
+    expect(() => checkInvariants(state)).not.toThrow()
+    expect(checkInvariants(state).length).toBeGreaterThan(0)
+  })
+
+  it.each(shapes)('%s is refused by the import path, with a reason', (_name, state) => {
+    const envelope = JSON.stringify({ app: 'chipper', schemaVersion: SCHEMA_VERSION, state })
+    let result: ReturnType<typeof parseEnvelope>
+    expect(() => {
+      result = parseEnvelope(envelope)
+    }).not.toThrow()
+    expect(result!.ok).toBe(false)
+    if (result!.ok) return
+    expect(result!.error.length).toBeGreaterThan(10)
+    expect(result!.error).not.toContain('TypeError')
   })
 })

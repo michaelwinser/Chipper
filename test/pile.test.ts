@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { reduce } from '../src/domain/reduce'
+import { descendants } from '../src/domain/state'
 import { RuleError } from '../src/domain/errors'
 import { parseTags, tagCounts } from '../src/domain/tags'
 import { buildPile } from '../src/domain/select/pile'
@@ -281,5 +282,97 @@ describe('an idea is allowed to change its mind', () => {
     expect(() =>
       run(withItem(), { kind: 'editPileItem', id: 'p1', text: '  #health ', at: AT }),
     ).toThrow(RuleError)
+  })
+})
+
+describe('the Pile is not a way out of the archive, or into it', () => {
+  const archived = () => reduce(mainState(), { kind: 'archiveGoal', id: 'g-chipper', at: AT })
+
+  it('refuses to pile a task out of an archived goal', () => {
+    // The SECOND side door. `changeLevel` was closed at M8 and this was not, so DESIGN
+    // §3.3's claim that the ladder "was the one route out" was wrong when written:
+    // piling a task out of an archived goal destroyed it and left a bare line in the
+    // Pile, emptying a goal the Archive still lists with its date.
+    expect(() =>
+      run(archived(), {
+        kind: 'sendToPile',
+        ref: { type: 'task', id: 't-model' },
+        pileId: 'pi-x',
+        at: AT,
+      }),
+    ).toThrow(/archived/)
+  })
+
+  it('refuses to pile a plan out of an archived goal', () => {
+    expect(() =>
+      run(archived(), {
+        kind: 'sendToPile',
+        ref: { type: 'plan', id: 'p-ship' },
+        pileId: 'pi-x',
+        at: AT,
+      }),
+    ).toThrow(/archived|has-children|still has things/)
+  })
+
+  it('refuses to pile a task that is already done', () => {
+    // The rule lived in `Chip.svelte` as a comment explaining why that component hid the
+    // button, while `TaskRow` rendered the same button with no guard at all.
+    const done = run(mainState(), { kind: 'setTaskDone', id: 't-may', done: true, at: AT })
+    expect(() =>
+      run(done, { kind: 'sendToPile', ref: { type: 'task', id: 't-may' }, pileId: 'p1', at: AT }),
+    ).toThrow(/already done/)
+    expect(done.tasks['t-may']).toMatchObject({ done: true, doneAt: AT })
+  })
+
+  it('refuses to promote an idea INTO an archived goal', () => {
+    // The route back in. The task would land where nothing renders it: not the board,
+    // which filters archived; not the Archive, which lists goals; not the Pile, which it
+    // has left. Gone until the goal is restored, with no invariant reporting it.
+    const withIdea = run(archived(), {
+      kind: 'capture',
+      id: 'pi-cable',
+      text: 'buy the cable',
+      destination: { kind: 'pile' },
+      at: AT,
+    })
+    expect(() =>
+      run(withIdea, {
+        kind: 'promotePileItem',
+        itemId: 'pi-cable',
+        to: { kind: 'task', id: 't-cable', parent: { type: 'goal', id: 'g-chipper' }, size: null },
+        at: AT,
+      }),
+    ).toThrow(/archived/)
+    // And the idea is still in the Pile — a refusal, not a half-move.
+    expect(withIdea.pile['pi-cable']).toBeDefined()
+  })
+
+  it('refuses to create a task or a plan inside an archived goal', () => {
+    for (const m of [
+      {
+        kind: 'createTask' as const,
+        id: 't-new',
+        parent: { type: 'goal' as const, id: 'g-chipper' },
+        title: 'Something',
+        size: null,
+        at: AT,
+      },
+      {
+        kind: 'createPlan' as const,
+        id: 'p-new',
+        parent: { type: 'goal' as const, id: 'g-chipper' },
+        title: 'Something',
+        at: AT,
+      },
+    ]) {
+      expect(() => run(archived(), m)).toThrow(/archived/)
+    }
+  })
+
+  it('an archived goal keeps every child — DESIGN §3.3 invariant 8, as a property', () => {
+    const before = descendants(mainState(), { type: 'goal', id: 'g-chipper' })
+    const after = descendants(archived(), { type: 'goal', id: 'g-chipper' })
+    expect(after.plans.map((p) => p.id).sort()).toEqual(before.plans.map((p) => p.id).sort())
+    expect(after.tasks.map((t) => t.id).sort()).toEqual(before.tasks.map((t) => t.id).sort())
   })
 })

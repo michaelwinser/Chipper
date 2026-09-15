@@ -116,7 +116,7 @@ Asserted after **every write** in development builds — in `store/local.ts` rat
 5. Every `Ref` in `priorities` resolves; refs are unique; a ref to a done Task is removed when it completes.
 6. A Pile item is never also an entity — promotion (UC-1040/1050) deletes the Pile item in the same mutation.
 7. No `Ref` in `priorities` resolves into an archived Goal's subtree — `archiveGoal` clears them in the same mutation (UC-2130).
-8. An archived Goal keeps every child in place; nothing is reparented by archiving or restoring. Also not a check — it is a property of the mutations rather than of a document, so it is enforced where it can be: `archiveGoal` sets a flag and moves nothing, and `changeLevel` refuses any ref whose owning goal is archived, which was the one route out (`test/ladder.test.ts`).
+8. An archived Goal keeps every child in place; nothing is reparented by archiving or restoring. Also not a check — it is a property of the mutations rather than of a document, so it is enforced where it can be: `archiveGoal` sets a flag and moves nothing, and `changeLevel` refuses any ref whose owning goal is archived, which was the one route out — until review found two more. `sendToPile` was a second door out, destroying a task and leaving a bare line in the Pile while the Archive still listed the goal it emptied; and `createPlan`, `createTask` and `promotePileItem` were a door back IN, putting work inside an archived goal where the board filters it, the Archive does not list it and the Pile no longer holds it. All five now refuse, because none of them produces an inconsistent document — no invariant would ever have reported any of it.
 
 ---
 

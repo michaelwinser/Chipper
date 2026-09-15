@@ -237,7 +237,17 @@
   async function onimport() {
     const raw = await pickFile()
     if (raw === null) return
-    const result = parseEnvelope(raw)
+    // `parseEnvelope` is meant to refuse rather than throw, and mostly does — but it walks
+    // an unvalidated document to decide, and a shape nobody anticipated becomes a
+    // TypeError. Unhandled here it was an unhandled rejection: the user picked a file, no
+    // message appeared, and the click did nothing. The store path has had this guard since
+    // M8; the import path is the one people actually use.
+    let result: ReturnType<typeof parseEnvelope>
+    try {
+      result = parseEnvelope(raw)
+    } catch (error) {
+      result = { ok: false, error: `This file could not be read. ${String(error)}` }
+    }
     if (!result.ok) {
       if (session) session.setNotice(result.error)
       else startFreshError = result.error
