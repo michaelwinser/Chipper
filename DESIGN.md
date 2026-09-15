@@ -107,7 +107,7 @@ Each top-level map becomes a Firestore collection with no reshaping. The parent 
 
 Checked in `domain/invariants.ts`, asserted by the reducer in development builds, and covered by tests:
 
-1. Every entity's `parent` resolves to an entity that exists.
+1. Every entity's `parent` resolves to an entity that exists — **except** an archived Goal's swimlane, which may be gone. PRD §5.8 requires it: "if that Swimlane is gone, restore asks which one" is only meaningful if the state can hold that. Reassigning archived goals when their lane is deleted would silently rewrite history for work that is already over.
 2. No cycles in the parent chain.
 3. A Goal belongs to exactly one Swimlane (PRD §5.1).
 4. Plan nesting depth ≤ 3 is **guidance, not enforcement** (PRD D5) — the invariant records the depth, the view model surfaces it, nothing blocks.

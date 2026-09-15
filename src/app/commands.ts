@@ -86,13 +86,54 @@ export function createCommands(deps: Deps) {
     },
 
     /** One gesture, two mutations — which one is decided from current state, not guessed. */
+    /** The sweep. One mutation, so the board is never half-re-prioritised. */
+    async setPriorities(refs: Ref[]) {
+      await store.apply({ kind: 'setPriorities', refs, at: now() })
+    },
+
     async toggleStar(state: State, ref: Ref) {
       const starred = state.priorities.some((r) => r.type === ref.type && r.id === ref.id)
       await store.apply({ kind: starred ? 'removePriority' : 'addPriority', ref, at: now() })
     },
 
-    async deleteEmpty(ref: EntityRef) {
-      await store.apply({ kind: 'deleteEmpty', ref, at: now() })
+    async deleteGoal(id: string) {
+      await store.apply({ kind: 'deleteGoal', id, at: now() })
+    },
+
+    async deletePlan(id: string, disposition: 'promote-children' | 'cascade') {
+      await store.apply({ kind: 'deletePlan', id, disposition, at: now() })
+    },
+
+    async deleteTask(id: string) {
+      await store.apply({ kind: 'deleteTask', id, at: now() })
+    },
+
+    /** The caller chooses a destination; the ids for any new pile items are made here. */
+    async deleteSwimlane(
+      id: string,
+      disposition: { kind: 'move'; toSwimlaneId: string } | { kind: 'archive'; looseTasks: number },
+    ) {
+      await store.apply({
+        kind: 'deleteSwimlane',
+        id,
+        disposition:
+          disposition.kind === 'move'
+            ? disposition
+            : { kind: 'archive', pileIds: Array.from({ length: disposition.looseTasks }, newId_) },
+        at: now(),
+      })
+    },
+
+    async archiveGoal(id: string) {
+      await store.apply({ kind: 'archiveGoal', id, at: now() })
+    },
+
+    async restoreGoal(id: string, swimlaneId?: string) {
+      await store.apply(
+        swimlaneId === undefined
+          ? { kind: 'restoreGoal', id, at: now() }
+          : { kind: 'restoreGoal', id, swimlaneId, at: now() },
+      )
     },
 
     async capture(text: string, destination: CaptureDestination) {

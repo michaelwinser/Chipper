@@ -233,35 +233,3 @@ describe('UC-4040 — completing a task', () => {
     expect(Object.keys(state.tasks['t1']!)).not.toContain('timeSpent')
   })
 })
-
-describe('deleteEmpty — the M1 stopgap', () => {
-  it('removes something with nothing under it', () => {
-    const state = run([...base(), { kind: 'deleteEmpty', ref: { type: 'task', id: 't1' }, at: AT }])
-    expect(state.tasks['t1']).toBeUndefined()
-    expect(checkInvariants(state)).toEqual([])
-  })
-
-  it('refuses anything with children rather than guessing at a cascade', () => {
-    for (const ref of [
-      { type: 'plan' as const, id: 'p1' },
-      { type: 'goal' as const, id: 'g1' },
-      { type: 'swimlane' as const, id: 'sw1' },
-    ]) {
-      expect(() => run([...base(), { kind: 'deleteEmpty', ref, at: AT }])).toThrow(
-        /has-children|still has/,
-      )
-    }
-  })
-
-  it('leaves no dangling priority behind it', () => {
-    const state = run(base())
-    const starred: State = { ...state, priorities: [{ type: 'task', id: 't1' }] }
-    const after = reduce(deepFreeze(starred), {
-      kind: 'deleteEmpty',
-      ref: { type: 'task', id: 't1' },
-      at: AT,
-    })
-    expect(after.priorities).toEqual([])
-    expect(checkInvariants(after)).toEqual([])
-  })
-})

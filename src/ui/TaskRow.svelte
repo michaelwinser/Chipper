@@ -88,10 +88,8 @@
       aria-label="Send to the Pile"
       onclick={() => actions.sendToPile({ type: 'task', id: row.id })}>↑</button
     >
-    <button
-      class="remove"
-      aria-label="Delete task"
-      onclick={() => actions.remove({ type: 'task', id: row.id })}>×</button
+    <button class="remove" aria-label="Delete task" onclick={() => actions.remove('task', row.id)}
+      >×</button
     >
   {/if}
 </div>

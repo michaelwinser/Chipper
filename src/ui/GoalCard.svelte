@@ -5,6 +5,7 @@
   import Icon from './Icon.svelte'
   import StarButton from './StarButton.svelte'
   import EditableText from './EditableText.svelte'
+  import DeadlineField from './DeadlineField.svelte'
   import AddInline from './AddInline.svelte'
   import { getBoardActions, isReadOnly } from './actions'
 
@@ -35,24 +36,40 @@
         ontoggle={() => actions.toggleStar({ type: 'goal', id: card.goalId })}
       />
     {/if}
-    {#if !readOnly && card.rows.length === 0}
-      <!-- Only offered while there is nothing underneath: the Pile holds a line of
-           text, so sending structured work there would destroy it (PRD §5.8). -->
-      <button class="pile" onclick={() => actions.sendToPile({ type: 'goal', id: card.goalId })}>
-        to the Pile
-      </button>
-      <button
-        class="remove"
-        aria-label="Delete goal"
-        onclick={() => actions.remove({ type: 'goal', id: card.goalId })}>×</button
-      >
+    {#if !readOnly}
+      <span class="tools">
+        <!-- Archive sits before delete everywhere it appears, so the eye reaches the
+             reversible choice first (PRD §5.8). -->
+        <button onclick={() => actions.archive(card.goalId)}>archive</button>
+        <button
+          title="It is a step towards something bigger"
+          onclick={() => actions.changeLevel({ type: 'goal', id: card.goalId }, 'plan')}
+          >↓ plan</button
+        >
+        {#if card.rows.length === 0}
+          <button onclick={() => actions.sendToPile({ type: 'goal', id: card.goalId })}>
+            to the Pile
+          </button>
+        {/if}
+        <button
+          class="remove"
+          aria-label="Delete goal"
+          onclick={() => actions.remove('goal', card.goalId)}>×</button
+        >
+      </span>
     {/if}
   </div>
 
   <div class="meta">
     <span>{card.meta.label}</span>
-    {#if card.meta.deadline}
-      <span class="dot">·</span><span>{card.meta.deadline.label}</span>
+    <span class="dot">·</span>
+    {#if readOnly}
+      {#if card.meta.deadline}<span>{card.meta.deadline.label}</span>{/if}
+    {:else}
+      <DeadlineField
+        value={card.meta.deadline}
+        onchange={(iso) => actions.setDeadline({ type: 'goal', id: card.goalId }, iso)}
+      />
     {/if}
     {#if !readOnly}
       <!-- The way into a goal: one at a time, so the board never unfolds all at once. -->
@@ -274,7 +291,17 @@
   .card:focus-within .adders {
     opacity: 1;
   }
-  .pile {
+  .tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+  }
+  .card:hover .tools,
+  .card:focus-within .tools {
+    opacity: 1;
+  }
+  .tools button {
     font: inherit;
     font-size: 11px;
     color: var(--faint-2);
@@ -282,29 +309,16 @@
     border: none;
     padding: 0;
     cursor: pointer;
-    opacity: 0;
     white-space: nowrap;
   }
-  .card:hover .pile {
-    opacity: 1;
-  }
-  .pile:hover {
+  .tools button:hover {
     color: var(--muted);
   }
   .remove {
-    border: none;
-    background: none;
-    color: var(--faint-2);
-    font-size: 16px;
+    font-size: 15px !important;
     line-height: 1;
-    padding: 0 2px;
-    cursor: pointer;
-    opacity: 0;
-  }
-  .card:hover .remove {
-    opacity: 1;
   }
   .remove:hover {
-    color: var(--cherry);
+    color: var(--cherry) !important;
   }
 </style>

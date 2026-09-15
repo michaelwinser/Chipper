@@ -15,7 +15,6 @@
 
   const actions = getBoardActions()
   const readOnly = isReadOnly()
-  const isEmpty = $derived(lane.cards.length === 0 && lane.chips.length === 0)
   const subtitle = $derived(
     lane.cards.length > 0
       ? `${lane.cards.length} ${lane.cards.length === 1 ? 'goal' : 'goals'}`
@@ -52,13 +51,11 @@
           aria-label="Move lane down"
           onclick={() => actions.moveSwimlane(lane.id, 1)}>↓</button
         >
-        {#if isEmpty}
-          <button
-            aria-label="Delete lane"
-            class="danger"
-            onclick={() => actions.remove({ type: 'swimlane', id: lane.id })}>×</button
-          >
-        {/if}
+        <button
+          aria-label="Delete lane"
+          class="danger"
+          onclick={() => actions.remove('swimlane', lane.id)}>×</button
+        >
       </span>
     {/if}
   </div>

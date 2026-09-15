@@ -4,6 +4,8 @@
  */
 import { buildBoard } from '../domain/select/board'
 import { buildPile, type PileModel } from '../domain/select/pile'
+import { buildArchive, type ArchiveModel } from '../domain/select/archive'
+import { buildSweep, type SweepModel } from '../domain/select/sweep'
 import type { Lens } from '../domain/board'
 import type { State } from '../domain/state'
 import type { Store } from '../store/port'
@@ -11,12 +13,14 @@ import { createCommands, type Commands } from './commands'
 import type { Deps } from './deps'
 
 /** Which surface is showing. Two, so far — the board and the backlog. */
-export type Page = 'board' | 'pile'
+export type Page = 'board' | 'pile' | 'archive' | 'priorities'
 
 export type Session = {
   readonly state: State
   readonly board: ReturnType<typeof buildBoard>
   readonly pile: PileModel
+  readonly archive: ArchiveModel
+  readonly sweep: SweepModel
   page: Page
   pileFilter: string | null
   lens: Lens
@@ -48,6 +52,13 @@ export async function createSession(deps: Deps, store: Store): Promise<Session> 
     },
     get pile() {
       return buildPile(state, pileFilter)
+    },
+    get archive() {
+      return buildArchive(state)
+    },
+    get sweep() {
+      // Today is injected; the domain never reads a clock of its own.
+      return buildSweep(state, deps.now().slice(0, 10))
     },
     get page() {
       return page

@@ -11,8 +11,9 @@
 import { rule } from './errors'
 import type { Mutation } from './mutations'
 import { parseTags } from './tags'
+import type { Id } from './primitives'
 import type { EntityRef, Goal, Parent, Plan, Ref, State, Task } from './state'
-import { childPlans, childTasks } from './state'
+import { childPlans, childTasks, descendants } from './state'
 
 function parentExists(state: State, parent: Parent): boolean {
   if (parent.type === 'swimlane') return parent.id in state.swimlanes
@@ -38,6 +39,34 @@ function exists(state: State, ref: EntityRef): boolean {
 }
 
 const sameRef = (a: Ref, b: Ref): boolean => a.type === b.type && a.id === b.id
+
+/**
+ * Removes entities and, in the same step, every star pointing at one of them. Doing it
+ * here rather than at each call site is why no deletion can leave a dangling priority:
+ * there is only one way to remove something (invariant 5).
+ */
+function dropAll(state: State, gone: { goals?: Id[]; plans?: Id[]; tasks?: Id[] }): State {
+  const goals = { ...state.goals }
+  const plans = { ...state.plans }
+  const tasks = { ...state.tasks }
+  for (const id of gone.goals ?? []) delete goals[id]
+  for (const id of gone.plans ?? []) delete plans[id]
+  for (const id of gone.tasks ?? []) delete tasks[id]
+
+  return {
+    ...state,
+    goals,
+    plans,
+    tasks,
+    priorities: state.priorities.filter((ref) =>
+      ref.type === 'goal'
+        ? ref.id in goals
+        : ref.type === 'plan'
+          ? ref.id in plans
+          : ref.id in tasks,
+    ),
+  }
+}
 
 /** Walks up to the swimlane something ultimately sits in. */
 function swimlaneOf(state: State, parent: Parent): string | null {
@@ -250,23 +279,167 @@ export function reduce(state: State, m: Mutation): State {
       return { ...state, priorities: [...state.priorities, m.ref] }
     }
 
+    case 'setPriorities': {
+      for (const ref of m.refs) {
+        rule(exists(state, ref), 'not-found', `no ${ref.type} ${ref.id}`)
+        rule(
+          !(ref.type === 'task' && state.tasks[ref.id]?.done === true),
+          'already-done',
+          'that is already done',
+        )
+        rule(
+          !(ref.type === 'goal' && state.goals[ref.id]?.archived === true),
+          'archived',
+          'that goal is archived',
+        )
+      }
+      const seen = new Set<string>()
+      const refs = m.refs.filter((ref) => {
+        const k = `${ref.type}:${ref.id}`
+        if (seen.has(k)) return false
+        seen.add(k)
+        return true
+      })
+      return { ...state, priorities: refs }
+    }
+
     case 'removePriority':
       return { ...state, priorities: state.priorities.filter((ref) => !sameRef(ref, m.ref)) }
 
-    case 'deleteEmpty': {
-      rule(exists(state, m.ref), 'not-found', `no ${m.ref.type} ${m.ref.id}`)
+    case 'deleteGoal': {
+      rule(m.id in state.goals, 'not-found', `no goal ${m.id}`)
+      const below = descendants(state, { type: 'goal', id: m.id })
+      return dropAll(state, {
+        goals: [m.id],
+        plans: below.plans.map((p) => p.id),
+        tasks: below.tasks.map((t) => t.id),
+      })
+    }
+
+    case 'deletePlan': {
+      const plan = state.plans[m.id]
+      rule(plan !== undefined, 'not-found', `no plan ${m.id}`)
+      const here: Parent = { type: 'plan', id: m.id }
+
+      if (m.disposition === 'cascade') {
+        const below = descendants(state, here)
+        return dropAll(state, {
+          plans: [m.id, ...below.plans.map((p) => p.id)],
+          tasks: below.tasks.map((t) => t.id),
+        })
+      }
+
+      // The kind default: breaking down is reversible, so un-breaking-down keeps the
+      // work. Direct children move up one level; anything deeper stays where it is.
+      const plans = { ...state.plans }
+      const tasks = { ...state.tasks }
+      for (const child of childPlans(state, here)) {
+        plans[child.id] = { ...child, parent: plan.parent, updatedAt: m.at }
+      }
+      for (const child of childTasks(state, here)) {
+        tasks[child.id] = { ...child, parent: plan.parent, updatedAt: m.at }
+      }
+      delete plans[m.id]
+      return dropAll({ ...state, plans, tasks }, { plans: [], tasks: [] })
+    }
+
+    case 'deleteTask': {
+      rule(m.id in state.tasks, 'not-found', `no task ${m.id}`)
+      return dropAll(state, { tasks: [m.id] })
+    }
+
+    case 'deleteSwimlane': {
+      rule(m.id in state.swimlanes, 'not-found', `no swimlane ${m.id}`)
+      const here: Parent = { type: 'swimlane', id: m.id }
+      const goals = Object.values(state.goals).filter((g) => g.swimlaneId === m.id)
+      const loose = childTasks(state, here)
+
+      if (m.disposition.kind === 'move') {
+        const to = m.disposition.toSwimlaneId
+        rule(to in state.swimlanes, 'not-found', `no swimlane ${to}`)
+        rule(to !== m.id, 'same-swimlane', 'that is the swimlane being deleted')
+        const moved = { ...state.goals }
+        for (const goal of goals) moved[goal.id] = { ...goal, swimlaneId: to, updatedAt: m.at }
+        const movedTasks = { ...state.tasks }
+        for (const task of loose) {
+          movedTasks[task.id] = { ...task, parent: { type: 'swimlane', id: to }, updatedAt: m.at }
+        }
+        const swimlanes = { ...state.swimlanes }
+        delete swimlanes[m.id]
+        return { ...state, swimlanes, goals: moved, tasks: movedTasks }
+      }
+
+      // Archive the goals whole, and turn loose tasks into pile items — which loses
+      // only their size. Nothing is destroyed, and every goal can be restored.
       rule(
-        !hasChildren(state, m.ref),
-        'has-children',
-        'this still has things under it — cascades are decided in M5, not guessed at here',
+        m.disposition.pileIds.length === loose.length,
+        'wrong-ids',
+        'one new id is needed for each loose task',
       )
-      const key = `${m.ref.type}s` as 'swimlanes' | 'goals' | 'plans' | 'tasks'
-      const collection = { ...state[key] }
-      delete collection[m.ref.id]
-      const priorities = state.priorities.filter(
-        (ref) => !(ref.type === m.ref.type && ref.id === m.ref.id),
-      )
-      return { ...state, [key]: collection, priorities }
+      let next = state
+      for (const goal of goals) next = reduce(next, { kind: 'archiveGoal', id: goal.id, at: m.at })
+      const pile = { ...next.pile }
+      loose.forEach((task, i) => {
+        const id = m.disposition.kind === 'archive' ? m.disposition.pileIds[i]! : ''
+        pile[id] = { id, text: task.title, tags: [], createdAt: m.at }
+      })
+      const tasks = { ...next.tasks }
+      for (const task of loose) delete tasks[task.id]
+      const swimlanes = { ...next.swimlanes }
+      delete swimlanes[m.id]
+      return {
+        ...next,
+        swimlanes,
+        tasks,
+        pile,
+        priorities: next.priorities.filter(
+          (ref) => !(ref.type === 'task' && loose.some((t) => t.id === ref.id)),
+        ),
+      }
+    }
+
+    case 'archiveGoal': {
+      const goal = state.goals[m.id]
+      rule(goal !== undefined, 'not-found', `no goal ${m.id}`)
+      if (goal.archived) return state
+
+      // Nothing starred may point into something off the board (invariant 7).
+      const below = descendants(state, { type: 'goal', id: m.id })
+      const gone = new Set<string>([
+        `goal:${m.id}`,
+        ...below.plans.map((p) => `plan:${p.id}`),
+        ...below.tasks.map((t) => `task:${t.id}`),
+      ])
+      return {
+        ...state,
+        goals: {
+          ...state.goals,
+          [m.id]: { ...goal, archived: true, archivedAt: m.at, updatedAt: m.at },
+        },
+        priorities: state.priorities.filter((ref) => !gone.has(`${ref.type}:${ref.id}`)),
+      }
+    }
+
+    case 'restoreGoal': {
+      const goal = state.goals[m.id]
+      rule(goal !== undefined, 'not-found', `no goal ${m.id}`)
+      rule(goal.archived, 'not-archived', 'that goal is not archived')
+      // Its lane may be gone, in which case the caller has to say where it goes.
+      const lane = m.swimlaneId ?? goal.swimlaneId
+      rule(lane in state.swimlanes, 'no-swimlane', 'that swimlane no longer exists')
+      return {
+        ...state,
+        goals: {
+          ...state.goals,
+          [m.id]: {
+            ...goal,
+            archived: false,
+            archivedAt: null,
+            swimlaneId: lane,
+            updatedAt: m.at,
+          },
+        },
+      }
     }
 
     case 'changeLevel': {

@@ -19,8 +19,15 @@ export function checkInvariants(state: State): Problem[] {
   const problems: Problem[] = []
   const add = (code: string, detail: string) => problems.push({ code, detail })
 
-  // 1 — every parent resolves.
+  // 1 — every parent resolves, with one deliberate exception.
+  //
+  // An ARCHIVED goal may name a swimlane that no longer exists. The PRD's restore rule
+  // requires it: "if that Swimlane is gone, restore asks which one" only means anything
+  // if the state can hold that situation. The alternative — reassigning archived goals
+  // to some other lane when theirs is deleted — would silently rewrite history for work
+  // that is already over. So the reference is allowed to dangle, and restore resolves it.
   for (const goal of Object.values(state.goals)) {
+    if (goal.archived) continue
     if (!(goal.swimlaneId in state.swimlanes)) {
       add('dangling-parent', `goal ${goal.id} points at missing swimlane ${goal.swimlaneId}`)
     }

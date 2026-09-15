@@ -158,7 +158,7 @@ In the order you will want them:
 #### Cascade rules
 - **Deleting a Goal** destroys its Plans and Tasks, completed ones included. The confirmation states the counts and **offers Archive beside it** — the destructive path always presents the non-destructive one.
 - **Deleting a Plan** promotes its Tasks up to the Plan's parent rather than destroying them. Breaking down is reversible; un-breaking-down should not cost you the work. "Delete its tasks too" exists but is not the default.
-- **Deleting a Swimlane** requires a destination for anything inside it — another Swimlane, or The Pile. There is no silent cascade.
+- **Deleting a Swimlane** requires a destination for anything inside it — another Swimlane, or **Archive**. There is no silent cascade. *(Revised at M5: this originally said "or The Pile". Piling a Goal destroys its Plans and Tasks, which contradicts §5.5's promise that the Pile is guilt-free and reversible — the Pile holds a line of text. Archive keeps everything and can be undone, and the restore rule below already anticipates a Goal whose Swimlane is gone. Loose Tasks still become Pile items, which loses only their size.)*
 - **Archiving** removes any priority stars pointing into the Goal. Restoring does not bring them back; priorities are a current choice, not history (§5.6).
 - **Restoring** puts a Goal back in its Swimlane. If that Swimlane is gone, restore asks which one.
 
@@ -250,12 +250,16 @@ A Task's size is its declared box. The app does **not** run a timer or track tha
 
 | D10 | Do completed Goals leave the Swimlane view? | **Yes — via Archive, and only when the user says so** (§5.8). The app never archives anything on its own; a Goal with every Task done sits there looking finished until you decide it's over. Archive covers the abandoned case identically, with no marker distinguishing the two. |
 | D11 | Does deleting a Plan delete its Tasks? | **No — they move up to the Plan's parent.** Breaking down is reversible, so un-breaking-down should not destroy work. Deleting the Tasks too is available and explicit. |
+| D13 | Where do a deleted Swimlane's contents go? | **Another Swimlane, or Archive — not the Pile.** Decided at M5 while implementing it. Sending structured work to the Pile destroys everything beneath it, so the Pile cannot be both the destination for a whole Swimlane and the guilt-free, reversible place §5.5 promises. Archive is the exit for structured work; the Pile is for ideas. |
 | D12 | Is Goal creation its own flow? | **No — it is the ladder plus two shortcuts.** Promotion already exists for Task → Plan and Pile → anything; Goal creation is the same mechanism one rung up, plus an in-lane "+ Add a goal" and an "as a goal" toggle on capture. |
 
 ### Still open
 
 1. **Recurring work:** weekly invoicing and similar patterns have no v1 answer. Watch whether the Plan-with-dated-sub-Plans pattern is sufficient.
-3. **Staleness surfacing:** metadata is captured in v1; the helpful (non-punitive) presentation is undesigned.
+2. **Staleness surfacing:** metadata is captured in v1; the helpful (non-punitive) presentation is undesigned.
+3. **Archive browsing at scale:** a flat reverse-chronological list is the v1 answer. If the Archive becomes something you search rather than glance at, it needs more.
+4. **An archived Goal whose Swimlane was deleted** keeps pointing at the lane it came from, and the Archive shows it as having no lane until a restore places it. The alternative — reassigning it to some surviving lane — would silently rewrite history for work that is already over. Recorded here because it is the one place a reference is deliberately allowed to dangle (`DESIGN.md` §3.3).
+5. **Completing a Pile item records nothing** (`BACKLOG.md` B-2). UC-1070 says it is "recorded as done", but a Pile item has no structure to record against.
 
 ## 11. Use cases
 
@@ -299,7 +303,7 @@ Do: drag a lane by its name. Then: the order persists. Order is the user's, neve
 Pre: Swimlane "Fun" with nothing in it. Do: delete. Then: one confirmation, it is gone.
 
 **UC-2014 — Delete a Swimlane that has contents**
-Pre: Swimlane "Work" with 4 Goals and 2 loose Tasks. Do: delete. Then: the app **requires a destination** — move everything to another Swimlane, or send it all to The Pile — before anything is removed. Never: a silent cascade; an offer to delete the contents as the default.
+Pre: Swimlane "Work" with 4 Goals and 2 loose Tasks. Do: delete. Then: the app **requires a destination** — move everything to another Swimlane, or archive its Goals whole and keep its loose Tasks as ideas in The Pile — before anything is removed. The dialog states what is inside. Never: a silent cascade; an offer to delete the contents as the default; a plain "delete everything" for a Swimlane that holds anything.
 
 **UC-2025 — Create a Goal from the board**
 Pre: Swimlane "Health" visible. Do: "+ Add a goal" at the end of the lane, type a title, Enter. Then: the Goal exists in that lane with no Plans, no Tasks and no deadline, and the absence of all three is not flagged as incomplete. Never: leaving the board to do it.

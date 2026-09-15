@@ -71,17 +71,18 @@ into a two-step one, for an idea the user has already finished with.
 
 ---
 
-## B-3 · Sending something to the Pile is refused when it has structure under it
+## B-3 · Sending something to the Pile is refused when it has structure under it — RESOLVED at M5
 
-**Noticed:** M3. **Severity:** by design for now; revisit at M5.
+**Noticed:** M3. **Resolved:** M5. **Outcome:** it stays as it is, deliberately.
 
 The Pile holds a line of text, so sending a goal with plans and tasks beneath it would
 destroy them — and §5.5's promise that the Pile is guilt-free and reversible cannot be true
 if it does. Currently refused with a message pointing at Archive.
 
-**Revisit at M5**, when Archive exists and the cascade rules are designed. The likely answer
-is that Archive is simply the right exit for structured work and the Pile is for ideas, in
-which case this stays as it is and the message becomes a signpost rather than an apology.
+Archive landed at M5 and is the right exit for structured work: it keeps the plans, the
+tasks and the finished work, and it is reversible. The Pile is for ideas. So the refusal
+stands and the message is now a signpost rather than an apology — the delete dialog offers
+Archive directly, and lane deletion offers to archive a whole lane's goals at once.
 
 ---
 

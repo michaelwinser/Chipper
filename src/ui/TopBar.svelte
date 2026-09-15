@@ -8,10 +8,10 @@
     onnavigate,
     oncapture,
   }: {
-    page?: 'board' | 'pile'
+    page?: 'board' | 'pile' | 'archive' | 'priorities'
     onexport?: () => void
     onimport?: () => void
-    onnavigate?: (page: 'board' | 'pile') => void
+    onnavigate?: (page: 'board' | 'pile' | 'archive' | 'priorities') => void
     oncapture?: () => void
   } = $props()
 </script>
@@ -37,15 +37,20 @@
       <button class="link" class:on={page === 'pile'} onclick={() => onnavigate('pile')}>
         The Pile
       </button>
+      <button class="link" class:on={page === 'archive'} onclick={() => onnavigate('archive')}>
+        Archive
+      </button>
     {/if}
     {#if oncapture}
       <button onclick={oncapture}>
         <Icon name="plus" size={13} color="var(--muted)" />Capture<em>⌘K</em>
       </button>
     {/if}
-    <span class="soon" title="Arrives in M6">
-      <Icon name="star" size={12} filled color="#d8c6bf" />Set priorities
-    </span>
+    {#if onnavigate}
+      <button onclick={() => onnavigate('priorities')}>
+        <Icon name="star" size={12} filled color="var(--cherry)" />Set priorities
+      </button>
+    {/if}
   </nav>
 </header>
 
@@ -99,14 +104,5 @@
   }
   button:hover {
     border-color: var(--line);
-  }
-  /* Not built yet. Shown greyed rather than hidden, so the shape of the app is honest. */
-  .soon {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12.5px;
-    color: var(--faint-2);
-    cursor: default;
   }
 </style>

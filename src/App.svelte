@@ -19,6 +19,10 @@
   import Pile from './ui/Pile.svelte'
   import CaptureOverlay from './ui/CaptureOverlay.svelte'
   import BreakDownDialog from './ui/BreakDownDialog.svelte'
+  import RemoveDialog from './ui/RemoveDialog.svelte'
+  import Archive from './ui/Archive.svelte'
+  import SetPriorities from './ui/SetPriorities.svelte'
+  import { buildRemoval, type Removal } from './domain/select/removal'
   import TopBar from './ui/TopBar.svelte'
   import Notice from './ui/Notice.svelte'
   import { setBoardActions, setReadOnly, type BoardActions } from './ui/actions'
@@ -36,6 +40,7 @@
   let view = $state<View>('live')
   let capturing = $state(false)
   let breaking = $state<{ taskId: string; title: string; starred: boolean } | null>(null)
+  let removing = $state<Removal | null>(null)
   let session = $state<Session | null>(null)
   let commands = $state<ReturnType<typeof createCommands> | null>(null)
   let width = $state(0)
@@ -95,7 +100,13 @@
       if (session) session.lens = { ...session.lens, expanded: [] }
     },
     setSize: (id, size) => guard((c) => c.setTaskSize(id, size)),
-    remove: (ref) => guard((c) => c.deleteEmpty(ref)),
+    // Nothing is removed from a click: the dialog first says what would go.
+    remove: (kind, id) => {
+      if (session) removing = buildRemoval(session.state, kind, id)
+    },
+    archive: (goalId) => guard((c) => c.archiveGoal(goalId)),
+    setDeadline: (ref, deadline) => guard((c) => c.setDeadline(ref, deadline)),
+    changeLevel: (ref, to) => guard((c) => c.changeLevel(ref, to)),
     sendToPile: (ref) => guard((c) => c.sendToPile(ref)),
   }
 
@@ -158,7 +169,7 @@
 
 <div class="shell">
   <div class="picker">
-    <span class="tag">M4</span>
+    <span class="tag">M5</span>
     <button class:on={view === 'live'} onclick={() => (view = 'live')}>Live</button>
     <span class="rule"></span>
     <span class="tag">fixtures</span>
@@ -190,6 +201,21 @@
         {/if}
         {#if session.page === 'board'}
           <Board board={session.board} />
+        {:else if session.page === 'priorities'}
+          <SetPriorities
+            sweep={session.sweep}
+            onsave={(refs) => {
+              guard((c) => c.setPriorities(refs))
+              session!.page = 'board'
+            }}
+            oncancel={() => (session!.page = 'board')}
+          />
+        {:else if session.page === 'archive'}
+          <Archive
+            archive={session.archive}
+            onrestore={(goalId, swimlaneId) => guard((c) => c.restoreGoal(goalId, swimlaneId))}
+            onremove={(goalId) => actions.remove('goal', goalId)}
+          />
         {:else}
           <Pile
             pile={session.pile}
@@ -206,6 +232,35 @@
                     }),
               )}
             ondelete={(id) => guard((c) => c.deletePileItem(id))}
+          />
+        {/if}
+        {#if removing}
+          {@const r = removing}
+          <RemoveDialog
+            removal={r}
+            ondelete={(disposition) => {
+              guard((c) =>
+                r.kind === 'goal'
+                  ? c.deleteGoal(r.id)
+                  : r.kind === 'plan'
+                    ? c.deletePlan(r.id, disposition)
+                    : c.deleteTask(r.id),
+              )
+              removing = null
+            }}
+            onarchive={() => {
+              guard((c) =>
+                r.kind === 'swimlane'
+                  ? c.deleteSwimlane(r.id, { kind: 'archive', looseTasks: r.looseTasks })
+                  : c.archiveGoal(r.id),
+              )
+              removing = null
+            }}
+            onmove={(toSwimlaneId) => {
+              guard((c) => c.deleteSwimlane(r.id, { kind: 'move', toSwimlaneId }))
+              removing = null
+            }}
+            onclose={() => (removing = null)}
           />
         {/if}
         {#if breaking}

@@ -43,9 +43,12 @@
         onadd={(t) => actions.addTask(parent, t)}
       />
       <button
-        class="remove"
-        aria-label="Delete plan"
-        onclick={() => actions.remove({ type: 'plan', id: row.id })}>×</button
+        class="climb"
+        title="It is not part of something bigger — it is the outcome"
+        onclick={() => actions.changeLevel({ type: 'plan', id: row.id }, 'goal')}>↑ goal</button
+      >
+      <button class="remove" aria-label="Delete plan" onclick={() => actions.remove('plan', row.id)}
+        >×</button
       >
     </span>
   {/if}
@@ -81,6 +84,19 @@
   }
   .row:hover .tools {
     opacity: 1;
+  }
+  .climb {
+    font: inherit;
+    font-size: 10.5px;
+    color: var(--faint-2);
+    background: none;
+    border: none;
+    padding: 0 2px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .climb:hover {
+    color: var(--muted);
   }
   .remove {
     border: none;

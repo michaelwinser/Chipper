@@ -34,12 +34,41 @@ export type Mutation =
   | { kind: 'setTaskSize'; id: Id; size: Size | null; at: IsoTime }
   | { kind: 'setDeadline'; ref: EntityRef; deadline: IsoDate | null; at: IsoTime }
   | { kind: 'setTaskDone'; id: Id; done: boolean; at: IsoTime }
+  /* --- the four exits (PRD §5.8) --- */
   /**
-   * M1 stopgap: removes something that has nothing under it, so a typo can be undone
-   * without pre-empting the cascade decisions that belong to M5 (PRD §5.8). Refuses
-   * anything with children rather than guessing what should happen to them.
+   * Destroys the goal and everything under it, completed work included. The DIALOG
+   * offers Archive beside it (UC-2105); this mutation does not, because a mutation
+   * that sometimes does something else cannot be tested or replayed.
    */
-  | { kind: 'deleteEmpty'; ref: EntityRef; at: IsoTime }
+  | { kind: 'deleteGoal'; id: Id; at: IsoTime }
+  /**
+   * Un-breaking-down should not cost you the work, so the default moves the plan's
+   * tasks up to its parent (UC-2106, PRD D11). Cascade is available and explicit.
+   */
+  | { kind: 'deletePlan'; id: Id; disposition: 'promote-children' | 'cascade'; at: IsoTime }
+  | { kind: 'deleteTask'; id: Id; at: IsoTime }
+  /**
+   * A destination is required BY THE TYPE, so a silent cascade is not expressible
+   * (UC-2014). `move` relocates everything; `archive` puts the goals away intact and
+   * turns loose tasks into pile items, which loses only their size.
+   */
+  | {
+      kind: 'deleteSwimlane'
+      id: Id
+      disposition: { kind: 'move'; toSwimlaneId: Id } | { kind: 'archive'; pileIds: Id[] }
+      at: IsoTime
+    }
+  /**
+   * It is over — finished, or given up on, and the two are deliberately identical
+   * (UC-2130). Clears any stars pointing into the goal in the same mutation, so no
+   * priority is ever left aimed at something off the board.
+   */
+  | { kind: 'archiveGoal'; id: Id; at: IsoTime }
+  /**
+   * Back on the board, unstarred: priorities are a current choice, not history.
+   * `swimlaneId` is needed only when the lane it came from is gone (UC-2132).
+   */
+  | { kind: 'restoreGoal'; id: Id; swimlaneId?: Id; at: IsoTime }
   /* --- the ladder (PRD §5.8) --- */
   /**
    * Nothing is stuck at the level you first gave it. A task that turns out to be too
@@ -83,6 +112,13 @@ export type Mutation =
    */
   | { kind: 'addPriority'; ref: Ref; at: IsoTime }
   | { kind: 'removePriority'; ref: Ref; at: IsoTime }
+  /**
+   * The sweep (UC-3030): the whole set is replaced in one step. Atomic because it is one
+   * decision — "these are my priorities now" — and because a half-applied sweep would
+   * leave the board in a state the user never chose. Nothing is recorded about what the
+   * previous set contained or how much of it was finished.
+   */
+  | { kind: 'setPriorities'; refs: Ref[]; at: IsoTime }
   /* --- data --- */
   | { kind: 'replaceAll'; state: State; at: IsoTime }
 
@@ -108,7 +144,13 @@ export const MUTATION_KINDS = [
   'deletePileItem',
   'addPriority',
   'removePriority',
-  'deleteEmpty',
+  'setPriorities',
+  'deleteGoal',
+  'deletePlan',
+  'deleteTask',
+  'deleteSwimlane',
+  'archiveGoal',
+  'restoreGoal',
   'changeLevel',
   'replaceAll',
 ] as const satisfies readonly MutationKind[]

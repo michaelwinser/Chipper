@@ -23,7 +23,15 @@ export type BoardActions = {
   setSizeLens(size: 'any' | 'S' | 'M' | 'L'): void
   closeAll(): void
   setSize(taskId: string, size: Size | null): void
-  remove(ref: EntityRef): void
+  /** Opens the dialog that says what would go. Never removes anything by itself. */
+  remove(kind: 'goal' | 'plan' | 'task' | 'swimlane', id: string): void
+  archive(goalId: string): void
+  setDeadline(ref: EntityRef, deadline: string | null): void
+  /** The ladder (PRD §5.8). `to` is the rung it should become. */
+  changeLevel(
+    ref: { type: 'goal' | 'plan' | 'task'; id: string },
+    to: 'goal' | 'plan' | 'task',
+  ): void
   sendToPile(ref: EntityRef): void
 }
 
@@ -46,6 +54,9 @@ export const readOnlyActions: BoardActions = {
   closeAll: () => {},
   setSize: () => {},
   remove: () => {},
+  archive: () => {},
+  setDeadline: () => {},
+  changeLevel: () => {},
   sendToPile: () => {},
 }
 
