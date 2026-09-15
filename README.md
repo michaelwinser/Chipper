@@ -17,6 +17,7 @@ Working name. Structure is SGPT; the app is Chipper.
 |---|---|
 | `PRD.md` | Product requirements. Principles, concepts, the one view, 30-odd numbered use cases (UC-####) written as `Pre / Do / Then / Never`. The `Never` clauses are the product principles made testable. |
 | `ROADMAP.md` | Eight milestones, each a vertical slice that ends in something usable and something testable. |
+| `BACKLOG.md` | Rough edges and open decisions noticed while using the app. Not milestone work. |
 | `DESIGN.md` | Technical design. Layering, data model, the store port and its conformance suite, the pure view model, toolchain and tests. |
 | `mocks/*.dc.html` | Ten screen mockups, one artboard per file. Source, hand-editable. |
 | `mocks/canvas.json` | Canvas layout: artboard positions, titles, annotations. |
@@ -28,6 +29,23 @@ The files in `mocks/` are the source. A rendered pan/zoom canvas of them lives a
 <https://claude.ai/code/artifact/d763ffb0-a7f3-403b-9d3d-b8ddf05387aa> — a view of these files, not a second copy to edit.
 It is regenerated from the `.dc.html` sources with the `design` skill; `mocks/chipper-mockups.html` is that generated
 bundle (2.5 MB, editor plus artboard sources), and is gitignored.
+
+## Running it
+
+Needs **either** a Node version manager **or** Docker — nothing else.
+
+```
+make setup     # install pinned dependencies (npm ci, exact lockfile)
+make dev       # dev server on :5173
+make check     # types, svelte, formatting, tests — what CI runs
+make test      # tests only
+make build     # static bundle into dist/
+make           # list every target
+```
+
+Or entirely in the container, with no Node on the host: `make docker-dev`, `make docker-test`, `make docker-check`.
+
+Node is pinned in `mise.toml` and `.nvmrc`; everything else in `package-lock.json`; the same version again in the `Dockerfile`.
 
 ## Reviewing
 

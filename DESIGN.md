@@ -435,7 +435,9 @@ Four layers, fast to slow, with no browser in v1.
 
 **The `Never` clauses are testable.** PRD §11 writes each use case as `Pre / Do / Then / Never`, and the `Never` is usually a structural assertion on `BoardModel`: no count of unfinished work, no state change that happened while the user was away, no card vanishing when a filter matches nothing. Those are the product principles, and they are the tests most worth having.
 
-**Deferred:** Playwright. Added when there is a second store implementation, or when a regression escapes the layers above. Browser binaries are a real cost to a fresh checkout and buy little while the view is a pure function.
+5. **Component tests** (added at M3) — `happy-dom` plus vitest, rendering a component against a view-model fixture and asserting the DOM. Added because three bugs reached the user through the UI layer while the domain produced none: a `setContext` call in the wrong lifecycle hook, goal contents made unreachable, and two elements sharing a CSS class so an opened card rendered invisible. None of those are reachable from a pure function, and all three are reachable from a rendered component. One dev dependency, no browser binaries.
+
+**Still deferred:** Playwright. Component tests cover rendering; full browser automation buys little more until there is a second store implementation or a multi-screen flow to drive.
 
 ---
 

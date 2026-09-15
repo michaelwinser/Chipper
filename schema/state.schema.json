@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chipper.local/schema/state.schema.json",
+  "title": "Chipper state",
+  "description": "The persisted document. Flat entity maps with parent pointers, so each map becomes a collection unchanged when this moves to a server.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "swimlanes", "goals", "plans", "tasks", "pile", "priorities"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "swimlanes": { "type": "object", "additionalProperties": { "$ref": "#/$defs/swimlane" } },
+    "goals": { "type": "object", "additionalProperties": { "$ref": "#/$defs/goal" } },
+    "plans": { "type": "object", "additionalProperties": { "$ref": "#/$defs/plan" } },
+    "tasks": { "type": "object", "additionalProperties": { "$ref": "#/$defs/task" } },
+    "pile": { "type": "object", "additionalProperties": { "$ref": "#/$defs/pileItem" } },
+    "priorities": { "type": "array", "items": { "$ref": "#/$defs/ref" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "isoDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "isoTime": { "type": "string", "format": "date-time" },
+    "size": { "enum": ["S", "M", "L"] },
+    "parent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "enum": ["swimlane", "goal", "plan"] },
+        "id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "enum": ["goal", "plan", "task"] },
+        "id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "swimlane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "color", "order", "createdAt", "updatedAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "order": { "type": "integer", "minimum": 0 },
+        "createdAt": { "$ref": "#/$defs/isoTime" },
+        "updatedAt": { "$ref": "#/$defs/isoTime" }
+      }
+    },
+    "goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "swimlaneId",
+        "title",
+        "notes",
+        "deadline",
+        "archived",
+        "archivedAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "swimlaneId": { "$ref": "#/$defs/id" },
+        "title": { "type": "string" },
+        "notes": { "type": "string" },
+        "deadline": { "oneOf": [{ "$ref": "#/$defs/isoDate" }, { "type": "null" }] },
+        "archived": { "type": "boolean" },
+        "archivedAt": { "oneOf": [{ "$ref": "#/$defs/isoTime" }, { "type": "null" }] },
+        "createdAt": { "$ref": "#/$defs/isoTime" },
+        "updatedAt": { "$ref": "#/$defs/isoTime" }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "parent", "title", "notes", "deadline", "createdAt", "updatedAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "parent": { "$ref": "#/$defs/parent" },
+        "title": { "type": "string" },
+        "notes": { "type": "string" },
+        "deadline": { "oneOf": [{ "$ref": "#/$defs/isoDate" }, { "type": "null" }] },
+        "createdAt": { "$ref": "#/$defs/isoTime" },
+        "updatedAt": { "$ref": "#/$defs/isoTime" }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "parent",
+        "title",
+        "notes",
+        "size",
+        "deadline",
+        "done",
+        "doneAt",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "parent": { "$ref": "#/$defs/parent" },
+        "title": { "type": "string" },
+        "notes": { "type": "string" },
+        "size": { "oneOf": [{ "$ref": "#/$defs/size" }, { "type": "null" }] },
+        "deadline": { "oneOf": [{ "$ref": "#/$defs/isoDate" }, { "type": "null" }] },
+        "done": { "type": "boolean" },
+        "doneAt": { "oneOf": [{ "$ref": "#/$defs/isoTime" }, { "type": "null" }] },
+        "createdAt": { "$ref": "#/$defs/isoTime" },
+        "updatedAt": { "$ref": "#/$defs/isoTime" }
+      }
+    },
+    "pileItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "tags", "createdAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "text": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "$ref": "#/$defs/isoTime" }
+      }
+    }
+  }
+}

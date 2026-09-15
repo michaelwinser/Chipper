@@ -1,0 +1,7 @@
+dist/
+node_modules/
+mocks/
+package-lock.json
+
+# Hand-written docs: formatting is deliberate, leave them alone.
+*.md

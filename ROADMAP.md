@@ -17,9 +17,9 @@ Every milestone is done when: it runs, `make check` is green, the listed use cas
 
 Toolchain end to end, and the design rendered as real HTML.
 
-`mise.toml`, `Dockerfile`, `Makefile`, `package.json` with the pinned dev set, Vite + Svelte + TypeScript + Vitest wired up. `BoardModel` types. `Board` / `Lane` / `GoalCard` / `TaskRow` / `PlanRow` components rendering **hardcoded fixtures derived from the twelve mockups**. No state, no storage, no interaction.
+`mise.toml`, `Dockerfile`, `Makefile`, `package.json` with the pinned dev set, Vite + Svelte + TypeScript + Vitest wired up. `BoardModel` types. `Board` / `Lane` / `GoalCard` / `TaskRow` / `PlanRow` components rendering **golden fixtures transcribed from the board artboards** — the view, overloaded, the size lens, everything, every card shape, and first-run. The seven non-board screens (goal detail, the Pile, capture, break-down, priorities, lifecycle, archive) stay as mockups until the milestones that own them.
 
-**What you can do:** open every screen we designed as real HTML at your actual screen width, in your browser, in light and dark. Resize it. Tell me what breaks — this is the first moment the design meets a real viewport rather than a 1280px artboard.
+**What you can do:** open the board in every state we designed, as real HTML at your actual screen width, in your browser, in light and dark. Resize it. Tell me what breaks — this is the first moment the design meets a real viewport rather than a 1280px artboard.
 
 **What I can catch:** the toolchain works from a cold checkout on both paths (version manager and Docker). The mechanical guards from `DESIGN.md` §9.5 are in place and failing correctly on purpose-broken code — import direction, the forbidden-keys compile assertion, the domain-purity grep. Fixtures exist for every board state, including the overloaded one.
 
@@ -60,13 +60,15 @@ Star a Goal, Plan or Task. `buildBoard` implements the star-level rule (`DESIGN.
 
 ---
 
-## M3 — Capture without leaving what you're doing
+## M3 — Capture without leaving what you're doing, and tests that reach the UI
 
 Quick capture with its keyboard shortcut, destination selection, the as-a-goal toggle, hashtag parsing. The Pile: list, tag filter, promote out, send to Pile, complete in place.
 
+**Plus the testing layer that M0–M2 deferred.** Three bugs reached the user through the UI layer — a `setContext` call in the wrong lifecycle hook, goal contents made unreachable, and two elements sharing a CSS class so an opened card rendered at `opacity: 0`. The domain has produced none. The trigger written into the original decision ("a regression that unit tests missed") has fired three times, so component tests with `happy-dom` go in here: render a component against a view-model fixture and assert what is actually in the DOM. One dev dependency, no browser binaries.
+
 **What you can do:** catch things during the day in two seconds, from wherever you are, and stop holding them in your head. The Pile becomes the place ideas go instead of the back of your mind.
 
-**What I can catch:** capture with no destination lands in the Pile; hashtags parse and strip; promotion deletes the Pile item in the same mutation (invariant 6); sending a starred Goal to the Pile clears its star.
+**What I can catch:** capture with no destination lands in the Pile; hashtags parse and strip; promotion deletes the Pile item in the same mutation (invariant 6); sending a starred Goal to the Pile clears its star. And, for the first time, that components render what the view model tells them to — an opened card shows its contents, a quiet card does not, a starred row shows its star.
 
 **Closes:** UC-1010, 1020, 1030, 1040, 1050, 1060, 1070, 2026.
 **Reviewers:** `mutation-reviewer`.

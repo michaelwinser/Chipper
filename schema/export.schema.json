@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chipper.local/schema/export.schema.json",
+  "title": "Chipper export",
+  "description": "What a .json export contains. A public surface the moment a file leaves the app, so it is versioned and refuses to be guessed at.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["app", "schemaVersion", "exportedAt", "state"],
+  "properties": {
+    "app": { "const": "chipper" },
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "exportedAt": { "type": "string", "format": "date-time" },
+    "state": { "$ref": "https://chipper.local/schema/state.schema.json" }
+  }
+}
