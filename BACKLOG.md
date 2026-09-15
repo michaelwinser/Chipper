@@ -112,6 +112,18 @@ sub-millisecond baselines produced a 24x outlier from JIT warm-up alone. The tes
 catches a hang and asserts the shape of the output instead, and performance stays a thing
 we measure deliberately rather than a thing CI guesses at.
 
+**And then I did it again, two commits later.** The M8 fuzz bound went from 40 seeds to
+2,500 — the right call, it finds real bugs — measured at 1.7s on this laptop, and left
+under Vitest's 5s default. A 2-core shared runner is roughly 3x slower, so it timed out and
+failed the Pages deploy. Same lesson, new place, days after writing this paragraph.
+
+The rule that came out of it, since "remember to think about CI" plainly does not work: **a
+test that does real work gets an explicit timeout, sized as a hang detector rather than a
+budget.** The fuzz test is at 60s against a 1.7s cost — about 35x, which fails an infinite
+loop and nothing else. If a test ever needs that headroom, something got slower and that is
+worth finding out rather than papering over. Only one test in the suite is above 500ms, so
+this is a narrow rule, not a licence to make everything slow.
+
 **Fixed would mean:** build a parent → children index once at the top of `buildBoard` and
 `buildSweep` and pass it down, rather than scanning per call. Do it if typing or ticking
 ever feels sticky — that is the symptom, and this is the cause.

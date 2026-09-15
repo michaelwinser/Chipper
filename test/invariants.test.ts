@@ -237,8 +237,19 @@ describe('the checker itself', () => {
    * The bound was 40. The M8 review reran it wider and found real reducer bugs first
    * appearing at seeds 893, 1020, 1901 and 2084 — `changeLevel` accepting a destination
    * inside an archived goal, which produces a document the loader then refuses. Forty
-   * seeds is not a net, it is a spot check, and the cost of the real one is under a
-   * second. If this ever gets slow, lower it deliberately and say so here.
+   * seeds is not a net, it is a spot check.
+   *
+   * The explicit timeout is the point of this comment. At ~1.7s on a developer laptop
+   * this sat under Vitest's 5s default with maybe 3x headroom, which is no headroom at
+   * all on a shared 2-core runner — and it duly failed the Pages deploy, which `make
+   * check` gates. That is BACKLOG B-8's lesson ("a budget with 2x headroom here would
+   * have gone red on CI, and CI gates the deploy") reappearing in a new place days after
+   * being written down.
+   *
+   * So: a bound chosen for COVERAGE, and a timeout that is a hang detector rather than a
+   * performance gate — 60s is ~35x the real cost, which fails a genuine infinite loop and
+   * nothing else. If this test ever needs the headroom, the generator got slower and that
+   * is worth knowing; do not raise the timeout without finding out why.
    */
   it('holds for every generated state — the fuzz net it actually backs', () => {
     for (let seed = 1; seed <= 2500; seed++) {
@@ -247,7 +258,7 @@ describe('the checker itself', () => {
         problems: [],
       })
     }
-  })
+  }, 60_000)
 })
 
 describe('the code list is the contract', () => {
