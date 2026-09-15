@@ -207,7 +207,7 @@ describe('UC-2131 — the Archive', () => {
     const laneGone = reduce(stocked(), {
       kind: 'deleteSwimlane',
       id: 'l-work',
-      disposition: { kind: 'archive', pileIds: [] },
+      disposition: { kind: 'archive', pileIds: {} },
       at: AT,
     })
     const { r, calls } = archive(laneGone)
@@ -324,5 +324,75 @@ describe('UC-2013 — something empty just goes', () => {
     })
     expect(dialog('goal', 'g-bare', state).r.button('Delete')?.textContent?.trim()).toBe('Delete')
     expect(dialog('plan', 'p-bare', state).r.button('Delete')?.textContent?.trim()).toBe('Delete')
+  })
+})
+
+describe('UC-2059 — a goal that turned out to be a step towards something bigger', () => {
+  const cardFor = (goalId: string, state: State = mainState()) =>
+    buildBoard(state, LENS)
+      .lanes.flatMap((l) => l.cards)
+      .find((c) => c.goalId === goalId)!
+
+  it('asks which goal before it moves anything', async () => {
+    const { actions, calls } = recordingActions()
+    const r = show(render(GoalCard, { card: cardFor('g-invoicing') }, { actions }))
+    r.button('↓ plan')?.click()
+    await settle()
+
+    // The whole bug: the old button called changeLevel immediately, with no target,
+    // and the reducer refused it. Opening the picker must dispatch nothing at all.
+    expect(calls).toEqual([])
+    expect(r.text).toContain('Make it a plan under')
+    expect(r.text).toContain('Family · Sort out the garage')
+  })
+
+  it('demotes under the goal that was chosen', async () => {
+    const { actions, calls } = recordingActions()
+    const r = show(render(GoalCard, { card: cardFor('g-invoicing') }, { actions }))
+    r.button('↓ plan')?.click()
+    await settle()
+    r.button('Sort out the garage')?.click()
+    await settle()
+    expect(calls).toEqual([
+      'changeLevel({"type":"goal","id":"g-invoicing"}, "plan", {"type":"goal","id":"g-garage"})',
+    ])
+  })
+
+  it('renders exactly what the model offers, and nothing of its own', async () => {
+    // The self-exclusion used to be a `.filter()` here in the component. The component
+    // now renders the list it is handed, so this asserts the rendering matches the model
+    // rather than re-asserting the rule the model already owns.
+    const card = cardFor('g-invoicing')
+    const r = show(render(GoalCard, { card }))
+    r.button('↓ plan')?.click()
+    await settle()
+    const picks = r.all('.picks .pick').map((b) => b.textContent?.trim())
+    expect(picks).toEqual(card.demoteUnder.map((t) => t.label))
+    expect(picks.some((p) => p?.includes('Catch up on invoicing'))).toBe(false)
+  })
+
+  it('hides the button entirely when there is nowhere to go', () => {
+    const card = { ...cardFor('g-invoicing'), demoteUnder: [] }
+    const r = show(render(GoalCard, { card }))
+    expect(r.button('↓ plan')).toBeNull()
+  })
+
+  it('keeps a long list inside the card rather than growing without limit', async () => {
+    // Measured at 200 goals: 200 buttons, unbounded, inside a card. `SetPriorities` gives
+    // its browse list a scroll budget; this had none.
+    const card = {
+      ...cardFor('g-invoicing'),
+      demoteUnder: Array.from({ length: 200 }, (_, i) => ({
+        goalId: `g${i}`,
+        label: `Work · Goal number ${i}`,
+      })),
+    }
+    const r = show(render(GoalCard, { card }))
+    r.button('↓ plan')?.click()
+    await settle()
+    const picks = r.query('.picks')!
+    expect(r.all('.picks .pick')).toHaveLength(200)
+    expect(getComputedStyle(picks).overflowY).toBe('auto')
+    expect(parseInt(getComputedStyle(picks).maxHeight, 10)).toBeGreaterThan(0)
   })
 })

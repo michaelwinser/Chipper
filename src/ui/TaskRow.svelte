@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { TaskRowModel } from '../domain/board'
-  import { SIZES, type Size } from '../domain/primitives'
+  import { nextSize } from '../domain/primitives'
   import Icon from './Icon.svelte'
   import StarButton from './StarButton.svelte'
   import EditableText from './EditableText.svelte'
@@ -9,12 +9,6 @@
   let { row }: { row: TaskRowModel } = $props()
   const actions = getBoardActions()
   const readOnly = isReadOnly()
-
-  function cycleSize() {
-    const order: (Size | null)[] = [...SIZES, null]
-    const next = order[(order.indexOf(row.size) + 1) % order.length] ?? null
-    actions.setSize(row.id, next)
-  }
 </script>
 
 <div class="row" style="padding-left: {row.indent * 22}px" class:done={row.done}>
@@ -75,7 +69,11 @@
   {#if readOnly}
     {#if row.size}<span class="size">{row.size}</span>{/if}
   {:else}
-    <button class="size editable" onclick={cycleSize} title="Small / Medium / Large">
+    <button
+      class="size editable"
+      onclick={() => actions.setSize(row.id, nextSize(row.size))}
+      title="Small / Medium / Large"
+    >
       {row.size ?? '–'}
     </button>
     <button

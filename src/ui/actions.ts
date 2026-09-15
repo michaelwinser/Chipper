@@ -27,10 +27,15 @@ export type BoardActions = {
   remove(kind: 'goal' | 'plan' | 'task' | 'swimlane', id: string): void
   archive(goalId: string): void
   setDeadline(ref: EntityRef, deadline: string | null): void
-  /** The ladder (PRD §5.8). `to` is the rung it should become. */
+  /**
+   * The ladder (PRD §5.8). `parent` is required only for a demotion, where the app
+   * cannot work out which goal it should sit under — the original had no such parameter,
+   * so every "↓ plan" click was refused with `bad-parent`.
+   */
   changeLevel(
     ref: { type: 'goal' | 'plan' | 'task'; id: string },
     to: 'goal' | 'plan' | 'task',
+    parent?: Parent,
   ): void
   sendToPile(ref: EntityRef): void
 }

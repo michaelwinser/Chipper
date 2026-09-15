@@ -35,9 +35,18 @@ check: ## Everything CI runs: types, svelte, formatting, tests
 	$(NPM) run typecheck
 	$(NPM) run format:check
 	$(NPM) run test:run
+	# The WHOLE suite again in two zones either side of UTC, not a hand-kept list of the
+	# files someone thought were date-sensitive. Most of the suite injects the day and so
+	# cannot see a timezone bug — which is how `systemToday` shipped returning the UTC
+	# date for seven milestones — and a new zone-sensitive test should not have to be
+	# remembered onto a list to be covered.
+	$(NPM) run test:tz
 
 build: ## Static bundle into dist/
 	$(NPM) run build
+
+preview: build ## Serve the built bundle over a local web server (PORT=2447)
+	$(NPM) run preview
 
 clean: ## Remove build output and installed dependencies
 	rm -rf dist node_modules

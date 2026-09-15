@@ -1,0 +1,85 @@
+{
+  "app": "chipper",
+  "schemaVersion": 1,
+  "exportedAt": "2026-09-14T18:20:00.000Z",
+  "state": {
+    "schemaVersion": 1,
+    "swimlanes": {
+      "l-work": {
+        "id": "l-work",
+        "name": "Work",
+        "color": "#5A7391",
+        "order": 0,
+        "createdAt": "2026-09-01T09:00:00.000Z",
+        "updatedAt": "2026-09-01T09:00:00.000Z"
+      }
+    },
+    "goals": {
+      "g-done": {
+        "id": "g-done",
+        "swimlaneId": "l-work",
+        "title": "Ship the September release",
+        "notes": "",
+        "deadline": null,
+        "archived": true,
+        "archivedAt": "2026-09-12T16:00:00.000Z",
+        "createdAt": "2026-09-01T09:05:00.000Z",
+        "updatedAt": "2026-09-12T16:00:00.000Z"
+      },
+      "g-live": {
+        "id": "g-live",
+        "swimlaneId": "l-work",
+        "title": "Catch up on invoicing",
+        "notes": "",
+        "deadline": null,
+        "archived": false,
+        "archivedAt": null,
+        "createdAt": "2026-09-01T09:06:00.000Z",
+        "updatedAt": "2026-09-01T09:06:00.000Z"
+      }
+    },
+    "plans": {
+      "p-cut": {
+        "id": "p-cut",
+        "parent": { "type": "goal", "id": "g-done" },
+        "title": "Cut the release branch",
+        "notes": "",
+        "deadline": null,
+        "createdAt": "2026-09-02T10:00:00.000Z",
+        "updatedAt": "2026-09-02T10:00:00.000Z"
+      }
+    },
+    "tasks": {
+      "t-notes": {
+        "id": "t-notes",
+        "parent": { "type": "plan", "id": "p-cut" },
+        "title": "Write the release notes",
+        "notes": "",
+        "size": "M",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "createdAt": "2026-09-02T10:01:00.000Z",
+        "updatedAt": "2026-09-02T10:01:00.000Z"
+      },
+      "t-may": {
+        "id": "t-may",
+        "parent": { "type": "goal", "id": "g-live" },
+        "title": "Invoice May",
+        "notes": "",
+        "size": "M",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "createdAt": "2026-09-03T11:00:00.000Z",
+        "updatedAt": "2026-09-03T11:00:00.000Z"
+      }
+    },
+    "pile": {},
+    "priorities": [
+      { "type": "task", "id": "t-notes" },
+      { "type": "plan", "id": "p-cut" },
+      { "type": "task", "id": "t-may" }
+    ]
+  }
+}

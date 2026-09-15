@@ -23,6 +23,15 @@ const EVERYTHING: Lens = { focus: 'everything', size: 'any', expanded: [] }
 const AT = '2026-09-14T10:00:00.000Z'
 
 describe('the artboards are reproducible from state', () => {
+  /**
+   * Whole-model comparisons, with nothing carved out.
+   *
+   * There was briefly an exclusion here for `demotionTargets`, on the grounds that no
+   * artboard draws a picker's contents. That was true, and it was the signal the field
+   * was on the wrong model: it now lives on each CARD, self already excluded, and the
+   * fixtures carry it — so the artboards describe the whole of what `buildBoard` emits
+   * again. A field the fixtures cannot describe is a field worth moving, not hiding.
+   */
   it('matches the Main artboard exactly', () => {
     expect(buildBoard(deepFreeze(mainState()), PRIORITIES)).toEqual(mainFixture)
   })
@@ -34,6 +43,63 @@ describe('the artboards are reproducible from state', () => {
   it('matches the SizeLens artboard exactly, from the same state again', () => {
     const lens: Lens = { focus: 'priorities', size: 'S', expanded: [] }
     expect(buildBoard(deepFreeze(mainState()), lens)).toEqual(sizeLensFixture)
+  })
+})
+
+describe('UC-2059 — where a goal could go if it turned out to be a step', () => {
+  const cardFor = (state: State, goalId: string) =>
+    buildBoard(state, EVERYTHING)
+      .lanes.flatMap((l) => l.cards)
+      .find((c) => c.goalId === goalId)!
+
+  it('offers every other live goal, in lane order, labelled with its lane', () => {
+    expect(cardFor(mainState(), 'g-invoicing').demoteUnder.map((t) => t.label)).toEqual([
+      'Work · Ship Chipper v1',
+      'Work · Hire a second engineer',
+      'Work · Rewrite the onboarding docs',
+      'Family · Plan the December trip',
+      'Family · Sort out the garage',
+      'Health · Get back to three runs a week',
+    ])
+  })
+
+  it('never offers the goal itself — the cycle rule, stated by the model', () => {
+    // This was a `.filter()` in GoalCard.svelte: `changeLevel`'s cycle rule restated in a
+    // component, where it could only be asserted by mounting one.
+    for (const card of buildBoard(mainState(), EVERYTHING).lanes.flatMap((l) => l.cards)) {
+      expect(card.demoteUnder.some((t) => t.goalId === card.goalId)).toBe(false)
+    }
+  })
+
+  it('never offers an archived goal as a destination', () => {
+    const state = reduce(mainState(), { kind: 'archiveGoal', id: 'g-docs', at: AT })
+    for (const card of buildBoard(state, EVERYTHING).lanes.flatMap((l) => l.cards)) {
+      expect(card.demoteUnder.some((t) => t.goalId === 'g-docs')).toBe(false)
+    }
+  })
+
+  it('offers nothing at all when a goal is the only one left', () => {
+    let state = mainState()
+    for (const id of Object.keys(state.goals).filter((g) => g !== 'g-runs')) {
+      state = reduce(state, { kind: 'deleteGoal', id, at: AT })
+    }
+    expect(cardFor(state, 'g-runs').demoteUnder).toEqual([])
+  })
+
+  it('every label it offers names a goal the reducer will actually accept', () => {
+    // The picker and the rule, checked against each other rather than assumed to agree.
+    const card = cardFor(mainState(), 'g-invoicing')
+    for (const target of card.demoteUnder) {
+      const next = reduce(mainState(), {
+        kind: 'changeLevel',
+        ref: { type: 'goal', id: 'g-invoicing' },
+        to: 'plan',
+        newId: 'p-moved',
+        parent: { type: 'goal', id: target.goalId },
+        at: AT,
+      })
+      expect(next.plans['p-moved']?.parent).toEqual({ type: 'goal', id: target.goalId })
+    }
   })
 })
 
@@ -254,9 +320,19 @@ describe('the view model cannot express a shortfall (DESIGN.md §2.1)', () => {
     }
   })
 
-  it('never changes state on its own — building the board twice gives the same board', () => {
-    const state = mainState()
-    expect(buildBoard(state, PRIORITIES)).toEqual(buildBoard(state, PRIORITIES))
+  it('never changes state on its own — the state it is handed is frozen', () => {
+    // `toEqual(buildBoard(...))` against a second call proves DETERMINISM, not purity:
+    // a selector that sorted `state.priorities` in place would pass it happily, since
+    // both calls see the same mutated state. Freezing is what makes the claim testable.
+    const frozen = deepFreeze(mainState())
+    for (const lens of [PRIORITIES, EVERYTHING, { ...PRIORITIES, size: 'S' as const }]) {
+      expect(() => buildBoard(frozen, lens)).not.toThrow()
+    }
+    // Opening a goal walks a different path through the same state.
+    expect(() => buildBoard(frozen, { ...PRIORITIES, expanded: ['g-invoicing'] })).not.toThrow()
+    // And the lens itself is not written to.
+    const lens = deepFreeze({ focus: 'priorities' as const, size: 'any' as const, expanded: [] })
+    expect(() => buildBoard(frozen, lens)).not.toThrow()
   })
 })
 

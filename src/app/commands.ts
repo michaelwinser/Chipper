@@ -108,10 +108,15 @@ export function createCommands(deps: Deps) {
       await store.apply({ kind: 'deleteTask', id, at: now() })
     },
 
-    /** The caller chooses a destination; the ids for any new pile items are made here. */
+    /**
+     * The caller chooses a destination; the ids for any new pile items are made here, one
+     * per loose task and keyed by it — so which task becomes which idea is data rather
+     * than a coincidence of iteration order.
+     */
     async deleteSwimlane(
       id: string,
-      disposition: { kind: 'move'; toSwimlaneId: string } | { kind: 'archive'; looseTasks: number },
+      disposition:
+        { kind: 'move'; toSwimlaneId: string } | { kind: 'archive'; looseTaskIds: string[] },
     ) {
       await store.apply({
         kind: 'deleteSwimlane',
@@ -119,7 +124,10 @@ export function createCommands(deps: Deps) {
         disposition:
           disposition.kind === 'move'
             ? disposition
-            : { kind: 'archive', pileIds: Array.from({ length: disposition.looseTasks }, newId_) },
+            : {
+                kind: 'archive',
+                pileIds: Object.fromEntries(disposition.looseTaskIds.map((t) => [t, newId_()])),
+              },
         at: now(),
       })
     },

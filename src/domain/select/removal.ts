@@ -1,3 +1,4 @@
+import type { NoGuilt } from '../board'
 /**
  * What a deletion would actually cost, worked out before it happens (UC-2105, UC-2106,
  * UC-2014).
@@ -7,9 +8,9 @@
  * warning can drift from what the mutation then does. The dialog renders what this
  * says; the reducer does what this describes.
  */
-import type { Id } from '../primitives'
+import { byCreation, type Id } from '../primitives'
 import type { State } from '../state'
-import { childPlans, childTasks, descendants } from '../state'
+import { childPlans, childTasks, descendants, orderedSwimlanes } from '../state'
 
 export type RemovalKind = 'goal' | 'plan' | 'task' | 'swimlane'
 
@@ -19,6 +20,8 @@ export type Removal = {
   title: string
   /** Plain-English account of what goes, or null when nothing else does. */
   cost: string | null
+  /** For a plan: what the second, destructive option would cost. Null when it is the same. */
+  cascadeCost: string | null
   /** Offered beside the destructive choice, never instead of it. */
   alternative: { kind: 'archive'; text: string } | { kind: 'promote-children'; text: string } | null
   /**
@@ -29,7 +32,8 @@ export type Removal = {
   holdsAnything: boolean
   /** Where the contents could go instead. Only swimlane removal needs these. */
   swimlanes: { id: Id; name: string; color: string }[]
-  looseTasks: number
+  /** The loose tasks that would become pile items, by id — not merely how many. */
+  looseTaskIds: Id[]
 }
 
 function count(n: number, one: string, many: string): string {
@@ -37,9 +41,11 @@ function count(n: number, one: string, many: string): string {
 }
 
 export function buildRemoval(state: State, kind: RemovalKind, id: Id): Removal | null {
-  const lanes = Object.values(state.swimlanes)
-    .sort((a, b) => a.order - b.order)
-    .map((lane) => ({ id: lane.id, name: lane.name, color: lane.color }))
+  const lanes = orderedSwimlanes(state).map((lane) => ({
+    id: lane.id,
+    name: lane.name,
+    color: lane.color,
+  }))
 
   if (kind === 'task') {
     const task = state.tasks[id]
@@ -49,10 +55,11 @@ export function buildRemoval(state: State, kind: RemovalKind, id: Id): Removal |
       id,
       title: task.title,
       cost: null,
+      cascadeCost: null,
       alternative: null,
       holdsAnything: false,
       swimlanes: [],
-      looseTasks: 0,
+      looseTaskIds: [],
     }
   }
 
@@ -74,6 +81,7 @@ export function buildRemoval(state: State, kind: RemovalKind, id: Id): Removal |
       id,
       title: goal.title,
       cost,
+      cascadeCost: null,
       // The destructive path always presents the non-destructive one (PRD §5.8) — but
       // only when there is one. Offering to archive something already archived would be
       // an escape hatch that goes nowhere.
@@ -85,7 +93,7 @@ export function buildRemoval(state: State, kind: RemovalKind, id: Id): Removal |
           },
       holdsAnything: below.plans.length + below.tasks.length > 0,
       swimlanes: [],
-      looseTasks: 0,
+      looseTaskIds: [],
     }
   }
 
@@ -94,6 +102,11 @@ export function buildRemoval(state: State, kind: RemovalKind, id: Id): Removal |
     if (!plan) return null
     const here = { type: 'plan' as const, id }
     const kids = childTasks(state, here).length + childPlans(state, here).length
+    // What the RED button would destroy, which is the whole subtree — not the direct
+    // children the promote sentence talks about. Stating only the kind outcome above a
+    // destructive one is how a dialog misleads while technically saying something true.
+    const below = descendants(state, here)
+    const doneBelow = below.tasks.filter((t) => t.done).length
     const parentTitle =
       plan.parent.type === 'goal'
         ? (state.goals[plan.parent.id]?.title ?? 'its goal')
@@ -106,17 +119,29 @@ export function buildRemoval(state: State, kind: RemovalKind, id: Id): Removal |
         kids === 0
           ? null
           : `Its ${count(kids, 'item', 'items')} move up to “${parentTitle}” and keep their sizes, stars and done state. Only the plan goes.`,
+      /** What the destructive option costs, stated separately from what the kind one does. */
+      cascadeCost:
+        below.plans.length + below.tasks.length === 0
+          ? null
+          : `Deleting its tasks too destroys ${count(below.tasks.length, 'task', 'tasks')}` +
+            (below.plans.length > 0 ? ` and ${count(below.plans.length, 'plan', 'plans')}` : '') +
+            (doneBelow > 0 ? `, including ${doneBelow} you've completed` : '') +
+            '. That cannot be undone.',
       alternative: null,
       holdsAnything: kids > 0,
       swimlanes: [],
-      looseTasks: 0,
+      looseTaskIds: [],
     }
   }
 
   const lane = state.swimlanes[id]
   if (!lane) return null
   const goals = Object.values(state.goals).filter((g) => g.swimlaneId === id && !g.archived)
-  const loose = childTasks(state, { type: 'swimlane', id })
+  // Sorted, because this list decides which task gets which new pile id: leaving it in
+  // record order made the same logical state produce different results on two machines.
+  const loose = childTasks(state, { type: 'swimlane', id }).sort(byCreation)
+  const finished = loose.filter((t) => t.done)
+  const keeping = loose.filter((t) => !t.done)
   const parts: string[] = []
   if (goals.length > 0) parts.push(count(goals.length, 'goal', 'goals'))
   if (loose.length > 0) parts.push(count(loose.length, 'loose task', 'loose tasks'))
@@ -126,19 +151,36 @@ export function buildRemoval(state: State, kind: RemovalKind, id: Id): Removal |
     id,
     title: lane.name,
     cost: parts.length === 0 ? null : `It holds ${parts.join(' and ')}. They have to go somewhere.`,
+    cascadeCost: null,
     alternative:
       goals.length + loose.length === 0
         ? null
         : {
             kind: 'archive',
-            text: `Archive its ${count(goals.length, 'goal', 'goals')} whole${
-              loose.length > 0
-                ? `, and keep the ${count(loose.length, 'loose task', 'loose tasks')} as ideas in the Pile`
-                : ''
-            }. Nothing is destroyed.`,
+            // Exactly what survives and what does not. The old copy said "Nothing is
+            // destroyed" while the same path was converting finished tasks into open
+            // ideas — the one sentence a person reads before agreeing to it.
+            text:
+              `Archive its ${count(goals.length, 'goal', 'goals')} whole` +
+              (keeping.length > 0
+                ? `, and keep the ${count(keeping.length, 'loose task', 'loose tasks')} as ideas in the Pile`
+                : '') +
+              '. ' +
+              (finished.length > 0
+                ? `The ${count(finished.length, 'task', 'tasks')} you have already finished ${finished.length === 1 ? 'is' : 'are'} destroyed — the Pile holds ideas, and an idea cannot be done.`
+                : 'Nothing is destroyed.'),
           },
     holdsAnything: goals.length + loose.length > 0,
     swimlanes: lanes.filter((l) => l.id !== id),
-    looseTasks: loose.length,
+    // Only the unfinished ones need a new pile id; the finished ones are not going there.
+    looseTaskIds: keeping.map((t) => t.id),
   }
 }
+
+/* ------------------------------------------------------------------------- *
+ * Structural guarantee (DESIGN.md §2.1, §9.5)
+ *
+ * A removal dialog states what a delete DESTROYS, which is legitimate (UC-2105). What it
+ * must not state is what the user failed to finish.
+ * ------------------------------------------------------------------------- */
+export const _noGuiltRemoval: [NoGuilt<Removal>] = [true]

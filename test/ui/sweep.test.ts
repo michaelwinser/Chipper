@@ -5,7 +5,6 @@
 import { describe, expect, it, afterEach } from 'vitest'
 import SetPriorities from '../../src/ui/SetPriorities.svelte'
 import GoalCard from '../../src/ui/GoalCard.svelte'
-import TopBar from '../../src/ui/TopBar.svelte'
 import Board from '../../src/ui/Board.svelte'
 import Pile from '../../src/ui/Pile.svelte'
 import Archive from '../../src/ui/Archive.svelte'
@@ -51,7 +50,9 @@ describe('UC-3030 — the sweep', () => {
     const { r } = sweep()
     const keeps = r.all('button').filter((b) => b.textContent?.trim() === 'Keeping')
     expect(keeps).toHaveLength(4)
-    expect(r.text).not.toContain('>Keep<')
+    // Not `r.text`: textContent cannot contain angle brackets, so the original check here
+    // could never have failed. Count the buttons instead.
+    expect(r.all('button').filter((b) => b.textContent?.trim() === 'Keep')).toHaveLength(0)
   })
 
   it('lets one go and saves the rest in a single step', async () => {
@@ -182,12 +183,9 @@ describe('UC-3050 — and nowhere else', () => {
     expect(r.text.toLowerCase()).not.toMatch(/tomorrow|this week|days|weeks away|coming up|due/)
   })
 
-  it('the top bar carries no date, badge or count', () => {
-    const r = show(
-      render(TopBar, { page: 'board' as const, onnavigate: () => {}, oncapture: () => {} }),
-    )
-    expect(r.text).not.toMatch(/\d/)
-  })
+  // The top bar's own "no count" assertion moved to `shell.test.ts`, where the app is
+  // mounted with a stocked pile. Rendered in isolation TopBar is handed no numbers at
+  // all, so the test could not fail however loudly a badge were added.
 
   it('the Pile has no dates at all', () => {
     const r = show(

@@ -1,3 +1,4 @@
+import type { NoGuilt } from '../board'
 /**
  * The Pile view model (PRD §5.5).
  *
@@ -5,8 +6,8 @@
  * late — so this model has no notion of age, staleness, or how long something has sat
  * there, and there is nowhere for one to be added.
  */
-import type { Id, IsoTime } from '../primitives'
-import type { State } from '../state'
+import { compareText, type Id, type IsoTime } from '../primitives'
+import { orderedSwimlanes, type State } from '../state'
 import { tagCounts } from '../tags'
 
 export type PileEntry = {
@@ -30,7 +31,7 @@ export type PileModel = {
 
 export function buildPile(state: State, filter: string | null = null): PileModel {
   const all = Object.values(state.pile).sort(
-    (a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id),
+    (a, b) => compareText(b.createdAt, a.createdAt) || compareText(a.id, b.id),
   )
   const entries = filter === null ? all : all.filter((item) => item.tags.includes(filter))
 
@@ -45,8 +46,20 @@ export function buildPile(state: State, filter: string | null = null): PileModel
     untagged: all.filter((item) => item.tags.length === 0).length,
     total: all.length,
     filter,
-    swimlanes: Object.values(state.swimlanes)
-      .sort((a, b) => a.order - b.order)
-      .map((lane) => ({ id: lane.id, name: lane.name, color: lane.color })),
+    // orderedSwimlanes, not a local sort: duplicate `order` values are not forbidden by
+    // any invariant, and a copy without its createdAt tiebreak falls back to record order.
+    swimlanes: orderedSwimlanes(state).map((lane) => ({
+      id: lane.id,
+      name: lane.name,
+      color: lane.color,
+    })),
   }
 }
+
+/* ------------------------------------------------------------------------- *
+ * Structural guarantee (DESIGN.md §2.1, §9.5)
+ *
+ * The Pile accumulates and nothing in it completes away on its own, which makes it the
+ * other place a count of what you have not done would arrive naturally.
+ * ------------------------------------------------------------------------- */
+export const _noGuiltPileModel: [NoGuilt<PileModel>] = [true]

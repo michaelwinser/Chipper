@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:tz": "TZ=America/Los_Angeles vitest run && TZ=Pacific/Auckland vitest run",
     "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

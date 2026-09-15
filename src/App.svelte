@@ -9,8 +9,8 @@
   import { onMount } from 'svelte'
   import { createSession, type Session } from './app/session.svelte'
   import { createCommands, nextLaneColor } from './app/commands'
-  import { randomId, systemClock } from './app/deps'
-  import { createLocalStore } from './store/local'
+  import { randomId, systemClock, systemToday } from './app/deps'
+  import { createLocalStore, type StoreStatus } from './store/local'
   import { downloadExport, pickFile } from './app/files'
   import { parseEnvelope } from './domain/transfer'
   import { orderedSwimlanes, type State } from './domain/state'
@@ -26,6 +26,9 @@
   import { buildRemoval, type Removal } from './domain/select/removal'
   import TopBar from './ui/TopBar.svelte'
   import Notice from './ui/Notice.svelte'
+  import Blocked from './ui/Blocked.svelte'
+  import { buildBlocked } from './domain/select/blocked'
+  import Unavailable from './ui/Unavailable.svelte'
   import { setBoardActions, setReadOnly, type BoardActions } from './ui/actions'
 
   let capturing = $state(false)
@@ -37,6 +40,20 @@
     existing: ImportSummary | null
   } | null>(null)
   let session = $state<Session | null>(null)
+  /** A failed "start fresh" has no session to carry a notice, so it is held here. */
+  let startFreshError = $state<string | null>(null)
+  let store = $state<ReturnType<typeof createLocalStore> | null>(null)
+  /**
+   * The store's status, mirrored into reactive state.
+   *
+   * It is mirrored rather than read through `store.status` because `status` is a getter
+   * over a closure variable that Svelte cannot track. The first version poked the shell
+   * with `store = store`, which Svelte 5 discards — `$state` sources compare with `===`
+   * and `proxy()` hands back the same proxy — so after "start fresh" the data was really
+   * gone while the screen still read "nothing has been deleted", with the erase button
+   * still armed. A screen that lies at exactly the moment it is load-bearing.
+   */
+  let status = $state<StoreStatus | null>(null)
   let commands = $state<ReturnType<typeof createCommands> | null>(null)
 
   /** Surfaces a refused rule as a notice instead of an unexplained no-op. */
@@ -100,7 +117,7 @@
     },
     archive: (goalId) => guard((c) => c.archiveGoal(goalId)),
     setDeadline: (ref, deadline) => guard((c) => c.setDeadline(ref, deadline)),
-    changeLevel: (ref, to) => guard((c) => c.changeLevel(ref, to)),
+    changeLevel: (ref, to, parent) => guard((c) => c.changeLevel(ref, to, parent)),
     sendToPile: (ref) => guard((c) => c.sendToPile(ref)),
   }
 
@@ -108,18 +125,51 @@
   setReadOnly(false)
 
   onMount(async () => {
-    const store = createLocalStore(localStorage, systemClock, {
+    // The write-error callback is safe to hand over now: writes only happen after mount.
+    // The read failure is NOT a callback — it is read synchronously off `store.status`,
+    // because it happens during construction, before any session exists to be told.
+    const opened = createLocalStore(localStorage, systemClock, {
       onWriteError: () =>
         session?.setNotice(
           'Could not save to this browser. Export your data before closing the tab.',
         ),
-      onLoadError: (detail) =>
-        session?.setNotice(`Stored data could not be read, so the board started empty. ${detail}`),
+      // DESIGN.md §3.3: the invariants are asserted on every write in development.
+      // `import.meta.env.DEV` is a build-time constant, so the check and everything it
+      // reaches is dropped from the production bundle entirely.
+      checkAfterEveryWrite: import.meta.env.DEV,
     })
-    const deps = { store, now: systemClock, newId: randomId }
-    session = await createSession(deps, store)
-    commands = createCommands(deps)
+    store = opened
+    status = opened.status
+
+    // No session over a store that refuses every write.
+    //
+    // Building one anyway made the whole recovery path dead code: `adopt` branches on
+    // `commands && session`, both of which were truthy, so importing a good export took
+    // the ordinary mutation route, `replaceAll` was refused by the blocked store, and the
+    // RuleError went to a notice the blocked branch does not render. The user clicked
+    // Import, nothing happened, no message appeared — leaving "Start fresh" as the only
+    // button that does anything, on the screen built to stop them needing it.
+    if (opened.status.kind === 'ok' || opened.status.kind === 'empty') await begin(opened)
   })
+
+  /**
+   * Open the board on top of a store that can be written to.
+   *
+   * Called at mount, and again on each way out of a blocked state — starting fresh and
+   * importing both leave a writable store with no session, and a shell that renders
+   * "Opening…" for ever is not an improvement on one that renders a lie.
+   */
+  async function begin(on: ReturnType<typeof createLocalStore>) {
+    const deps = { store: on, now: systemClock, today: systemToday, newId: randomId }
+    const next = await createSession(deps, on)
+    commands = createCommands(deps)
+    // Session first, status last: the other order paints one frame pairing status `ok`
+    // with a stale empty session, which on the recovery path reads as "the import wiped
+    // everything".
+    session = next
+    status = on.status
+    startFreshError = null
+  }
 
   /** Capture has to be reachable from wherever you already are — that is the feature. */
   function onkeydown(event: KeyboardEvent) {
@@ -131,7 +181,12 @@
   }
 
   function onexport() {
-    if (session) downloadExport(session.state, systemClock())
+    if (!session) return
+    if (!downloadExport(session.state, systemClock())) {
+      session.setNotice(
+        'This browser would not start the download. Copy your data out another way before closing the tab.',
+      )
+    }
   }
 
   const summarise = (s: State): ImportSummary => ({
@@ -140,20 +195,59 @@
     tasks: Object.keys(s.tasks).length,
   })
 
+  /**
+   * Import works from the blocked screen too, where there is no session.
+   *
+   * That is the case it matters most in: the user's stored data is unreadable and the
+   * file they are holding is the good copy. `existing` is null there — there is nothing
+   * loaded to weigh the incoming file against — and the dialog already handles that.
+   */
+  /**
+   * Take an imported document as the truth.
+   *
+   * Two routes because the shell can be in two states. With a session this is an
+   * ordinary mutation and the notice machinery works. From the blocked screen there is
+   * no session, no commands and a store that refuses every write — so the file is
+   * written straight through and the app opens again on top of it. That second route
+   * is the only way out of a blocked state that does not destroy the stored bytes.
+   */
+  async function adopt(next: State) {
+    // With a session this is an ordinary mutation. Without one — the blocked and
+    // unavailable screens — there is nothing to mutate, so the document is written
+    // straight through and the app opens on top of it.
+    if (commands && session) {
+      guard((c) => c.replaceAll(next))
+      session.setNotice('Imported.')
+      return
+    }
+    try {
+      // The store already in hand, not a new one over the same key: a replacement would
+      // re-parse the corrupt bytes into `blocked` only to have that overridden, and its
+      // `onWriteError` would write `startFreshError`, which is rendered only on the
+      // blocked screen — so every later failed write would be silent.
+      const live = store
+      if (!live) return
+      await live.adopt(next)
+      await begin(live)
+    } catch (error) {
+      startFreshError = error instanceof RuleError ? error.message : String(error)
+    }
+  }
+
   async function onimport() {
-    if (!session) return
     const raw = await pickFile()
     if (raw === null) return
     const result = parseEnvelope(raw)
     if (!result.ok) {
-      session.setNotice(result.error)
+      if (session) session.setNotice(result.error)
+      else startFreshError = result.error
       return
     }
     // Ask before replacing, and say what is on both sides of the trade (UC-6030).
     importing = {
       state: result.state,
       incoming: summarise(result.state),
-      existing: summarise(session.state),
+      existing: session ? summarise(session.state) : null,
     }
   }
 </script>
@@ -161,7 +255,34 @@
 <svelte:window {onkeydown} />
 
 <div class="shell">
-  {#if session}
+  {#if status?.kind === 'blocked'}
+    {@const blocked = status}
+    <!--
+      Import stays reachable. The blocked screen's only two moves used to be download the
+      opaque bytes or erase them — so a user holding a working export on disk, which is
+      the whole point of having export, had no way to use it. Export is deliberately not
+      offered: there is nothing loaded to export.
+    -->
+    <TopBar page="board" {onimport} />
+    <Blocked
+      blocked={buildBlocked(blocked)}
+      onstartfresh={async () => {
+        const live = store
+        if (!live) return
+        try {
+          await live.startFresh()
+          await begin(live)
+        } catch (error) {
+          startFreshError = error instanceof RuleError ? error.message : String(error)
+        }
+      }}
+      error={startFreshError}
+    />
+  {:else if status?.kind === 'unavailable'}
+    {@const reason = status.reason}
+    <TopBar page="board" />
+    <Unavailable {reason} />
+  {:else if session}
     <TopBar
       page={session.page}
       {onexport}
@@ -211,42 +332,37 @@
       />
     {/if}
 
-    {#if importing}
-      {@const file = importing}
-      <ImportDialog
-        incoming={file.incoming}
-        existing={file.existing}
-        onexportfirst={() => {
-          onexport()
-          session?.setNotice('Exported. Import again when you are ready to replace.')
-          importing = null
-        }}
-        onconfirm={() => {
-          guard((c) => c.replaceAll(file.state))
-          session?.setNotice('Imported.')
-          importing = null
-        }}
-        onclose={() => (importing = null)}
-      />
-    {/if}
     {#if removing}
       {@const r = removing}
       <RemoveDialog
         removal={r}
         ondelete={(disposition) => {
-          guard((c) =>
-            r.kind === 'goal'
-              ? c.deleteGoal(r.id)
-              : r.kind === 'plan'
-                ? c.deletePlan(r.id, disposition)
-                : c.deleteTask(r.id),
-          )
+          // Every kind, named. The original ended in a fallback that swallowed
+          // 'swimlane' into deleteTask, so deleting an empty lane raised "no task <id>"
+          // — and the component test passed because it stubbed this callback.
+          guard((c) => {
+            switch (r.kind) {
+              case 'goal':
+                return c.deleteGoal(r.id)
+              case 'plan':
+                return c.deletePlan(r.id, disposition)
+              case 'task':
+                return c.deleteTask(r.id)
+              case 'swimlane':
+                // `r.looseTaskIds`, not `[]`. The dialog only offers a plain delete for an
+                // empty lane, so the list is empty in practice — but hardcoding that made
+                // a comment's assumption load-bearing, and if it were ever wrong the
+                // reducer refuses with `wrong-ids` and the user sees a raw rule code.
+                // Passing what the model already computed makes the assumption not matter.
+                return c.deleteSwimlane(r.id, { kind: 'archive', looseTaskIds: r.looseTaskIds })
+            }
+          })
           removing = null
         }}
         onarchive={() => {
           guard((c) =>
             r.kind === 'swimlane'
-              ? c.deleteSwimlane(r.id, { kind: 'archive', looseTasks: r.looseTasks })
+              ? c.deleteSwimlane(r.id, { kind: 'archive', looseTaskIds: r.looseTaskIds })
               : c.archiveGoal(r.id),
           )
           removing = null
@@ -286,6 +402,29 @@
   {:else}
     <TopBar />
     <p class="loading">Opening…</p>
+  {/if}
+
+  <!--
+    Outside the session branch on purpose: importing is how a user recovers from the
+    blocked screen, where there is no session at all. With one, it goes through the
+    command path; without one it writes through the store and reopens the app.
+  -->
+  {#if importing}
+    {@const file = importing}
+    <ImportDialog
+      incoming={file.incoming}
+      existing={file.existing}
+      onexportfirst={() => {
+        onexport()
+        session?.setNotice('Exported. Import again when you are ready to replace.')
+        importing = null
+      }}
+      onconfirm={() => {
+        void adopt(file.state)
+        importing = null
+      }}
+      onclose={() => (importing = null)}
+    />
   {/if}
 </div>
 

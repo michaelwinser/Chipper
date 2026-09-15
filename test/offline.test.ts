@@ -3,9 +3,10 @@
  * the shipped source breaks that on first paint — which is exactly how the fonts
  * were loaded before they were self-hosted, and exactly how they could come back.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { join, relative, resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const SRC = join(ROOT, 'src')
@@ -51,5 +52,58 @@ describe('offline', () => {
     expect(families).toContain('IBM Plex Sans')
     const fonts = readdirSync(join(SRC, 'ui/fonts')).filter((f) => f.endsWith('.woff2'))
     expect(fonts).toHaveLength(2)
+  })
+})
+
+/**
+ * The shipped build, not the config (M8).
+ *
+ * `base: './'` is the single line the `file://` promise rests on, and nothing tested
+ * it. Asserting the config value would be a tautology — it would pass by restating
+ * itself — so this builds the app and reads what Vite actually emitted.
+ */
+describe('the built output opens from a file:// path', () => {
+  const dist = join(ROOT, 'dist')
+
+  beforeAll(() => {
+    execFileSync('npx', ['vite', 'build'], { cwd: ROOT, stdio: 'pipe' })
+  }, 120_000)
+
+  const index = () => readFileSync(join(dist, 'index.html'), 'utf8')
+
+  it('emits an index.html that loads something', () => {
+    expect(index()).toMatch(/<script[^>]+src=/)
+  })
+
+  it('references every asset relatively — a leading slash is a blank page on file://', () => {
+    const refs = [...index().matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]!)
+    expect(refs.length).toBeGreaterThan(1)
+    for (const ref of refs) {
+      expect(ref.startsWith('/')).toBe(false)
+      expect(ref).not.toMatch(/^https?:/)
+    }
+    // And they are relative in the explicit form, not bare names that resolve by luck.
+    expect(refs.some((r) => r.startsWith('./'))).toBe(true)
+  })
+
+  it('resolves each of those references to a file that exists', () => {
+    const refs = [...index().matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]!)
+    for (const ref of refs) {
+      expect(existsSync(join(dist, ref.replace(/^\.\//, '')))).toBe(true)
+    }
+  })
+
+  it('keeps the fonts relative too, inside the emitted CSS', () => {
+    const css = readdirSync(join(dist, 'assets')).filter((f) => f.endsWith('.css'))
+    expect(css.length).toBeGreaterThan(0)
+    for (const file of css) {
+      const urls = [...readFileSync(join(dist, 'assets', file), 'utf8').matchAll(/url\(([^)]+)\)/g)]
+      expect(urls.length).toBeGreaterThan(0)
+      for (const [, raw] of urls) {
+        const url = raw!.replace(/['"]/g, '')
+        expect(url.startsWith('/')).toBe(false)
+        expect(url).not.toMatch(/^https?:/)
+      }
+    }
   })
 })

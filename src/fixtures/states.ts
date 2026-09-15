@@ -13,9 +13,17 @@ import { reduce } from '../domain/reduce'
 import { emptyState, type Parent, type State } from '../domain/state'
 
 let clock = 0
+/**
+ * A monotonic, VALID timestamp. The first version padded a counter to two digits, so past
+ * step 99 it emitted `00:00:100.000Z` — not a time. Nothing noticed, because the schema
+ * was never run against this fixture and `BoardModel` carries no timestamps; the ordering
+ * it exists to produce happened to still be lexically correct.
+ */
 const at = () => {
   clock += 1
-  return `2026-09-01T00:00:${String(clock).padStart(2, '0')}.000Z`
+  const minutes = String(Math.floor(clock / 60)).padStart(2, '0')
+  const seconds = String(clock % 60).padStart(2, '0')
+  return `2026-09-01T00:${minutes}:${seconds}.000Z`
 }
 
 function build(steps: (add: (m: Mutation) => void) => void): State {

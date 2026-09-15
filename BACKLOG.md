@@ -101,7 +101,16 @@ call them once per card and once per progress count. Measured:
 
 At the size this app is *for* it is invisible, and adding an index now would put
 indirection through the most heavily tested code in the project to solve a problem nobody
-has. `test/scale.test.ts` pins it under 500 ms so a real regression still fails.
+has.
+
+Re-measured at M8 across four sizes: growth is ~4x per doubling of the document, i.e.
+quadratic, as expected. `test/scale.test.ts` no longer asserts a wall-clock budget it could
+fail on — the remaining `< 10 s` is a hang detector with four orders of magnitude of slack,
+not a performance target. The original `< 500 ms` had roughly 2x headroom on this laptop and
+would have gone red on a shared CI runner, which gates the Pages deploy. A ratio-based version was no better:
+sub-millisecond baselines produced a 24x outlier from JIT warm-up alone. The test now
+catches a hang and asserts the shape of the output instead, and performance stays a thing
+we measure deliberately rather than a thing CI guesses at.
 
 **Fixed would mean:** build a parent → children index once at the top of `buildBoard` and
 `buildSweep` and pass it down, rather than scanning per call. Do it if typing or ticking
@@ -135,3 +144,171 @@ creeps in makes it harder.
 **Fixed would mean:** tokens redefined under `prefers-color-scheme: dark`, cherry and sage
 re-checked for contrast against a dark ground, and a test that no component stylesheet
 contains a literal colour outside `tokens.css`.
+
+---
+
+## B-9 · The Rule of 3 is the layout wrapping, and nothing more
+
+**Noticed:** M8, by the principle audit. **Severity:** minor, and deliberately parked.
+
+UC-2080 says a swimlane holding more goals than it is laid out for "renders in a way that
+makes the crowding visible". Today that is the layout doing it: cards are a fixed 296px,
+the lane wraps, and a fourth goal pushes it onto a second row (PRD §5.7 — "lanes wrap onto
+second rows, and the page stops fitting on one screen"). `layout.goalsPerLane` is the
+number those widths were chosen around.
+
+M8 tried to add a signal on top and got it backwards. A `.crowded` rule narrowed cards to
+244px and the gap to 8px, so four crowded goals came to 1000px where four uncrowded ones
+came to 1226px — at exactly the count where the strain should first show, the crowding
+signal bought back 226px and delayed the wrap by a goal or two. It was also binary: a lane
+of four and a lane of nine rendered identically. Degrading the cards to bare titles instead
+was considered and rejected, because `Everything.dc.html` — the one artboard that draws all
+four of Work's goals — draws them with full task lists on the starred ones, and
+`test/board.test.ts` pins that.
+
+A caveat the code does not state: the wrap is a function of viewport width and of FOCUS,
+not of `goalsPerLane`. In Priorities focus a lane draws one card per starred thing, so a
+lane holding ten goals with two stars shows two cards and "8 more in Work" and never wraps
+at any count. UC-2080's `Then` is observable in Everything focus, below roughly 1320px.
+
+**Fixed would mean:** a signal that scales with how far past the number the lane is, costs
+the user something real rather than buying back room, and does not contradict the
+artboards. That is a design question, not a coding one — and it wants real use first, which
+is what D1 said in the first place ("revisit a hard cap once real data exists").
+`test/ui/crowding.test.ts` pins the current behaviour, including that a crowded lane's
+cards are never narrower than a calm one's.
+
+---
+
+## B-10 · Nothing can be moved to a different parent
+
+**Noticed:** M8, by the lifecycle review. **Severity:** major — this is the largest gap in
+the product.
+
+There is no reparenting mutation. A task filed under the wrong goal, a plan under the wrong
+goal, a goal in the wrong swimlane: none can be relocated. Every workaround destroys data.
+Delete-and-retype loses `done`, `doneAt`, `size`, `deadline`, `createdAt` and the star.
+Send-to-Pile-then-promote loses size, done state, deadline, notes and tags, and lands the
+result as a *loose task in a swimlane* — `Pile.svelte` only ever passes a `swimlaneId`, so
+it cannot go back inside a goal even though `promotePileItem` accepts any parent.
+
+The only reparenting that exists is incidental: `deletePlan`'s promote-children, and
+`changeLevel` with an explicit parent — which requires changing what the thing *is*.
+
+**Fixed would mean:** a `moveEntity { ref, parent, at }` mutation with the same guards
+`changeLevel` grew at M8 (no cycles, no destination inside an archived goal), a UI route
+from each row, and the same non-destructive promise the ladder makes. Deferred out of M8
+because M8 is a corrective milestone and this is a feature.
+
+---
+
+## B-11 · The ladder runs in three of its six directions
+
+**Noticed:** M8, by the lifecycle review. **Severity:** moderate.
+
+PRD §7 says promotion works "either direction", and `reduce.ts` supports every case. The UI
+does not:
+
+| | offered | reducer supports |
+|---|---|---|
+| task → plan | only through the break-down dialog | yes, plainly |
+| task → goal | loose tasks only (`Chip`) | yes, for nested tasks too — UC-2058's sub-case says so explicitly |
+| plan → goal | yes (`PlanRow`) | yes |
+| goal → plan | yes, with a picker (M8) | yes |
+| plan → task | **no route** | yes, when empty |
+| goal → task | **no route** | yes, when empty |
+
+**Fixed would mean:** each direction reachable from the row that has it, and UC-2058's
+sub-case — "a Task under a Plan can do this too and is detached from that Plan" — actually
+available.
+
+---
+
+## B-12 · `notes` exists everywhere, is promised to the user, and can never be filled in
+
+**Noticed:** M8, by the lifecycle review. **Severity:** moderate, and slightly embarrassing.
+
+`Goal`, `Plan` and `Task` all carry `notes`. `setNotes` is a mutation with a reducer case
+and a place in `MUTATION_KINDS`. `changeLevel` carries notes across the ladder.
+`BreakDownDialog` tells the user "Its notes, deadline and star come with it."
+
+There is no command, no action, and no UI. The field is always `''`. The one place the word
+appears in `src/ui/` is that sentence promising a field the user has no way to write.
+
+**Fixed would mean:** an editor on the opened card and in the break-down dialog — or, if
+notes are not wanted in v1, the field and its mutation come out and the dialog stops
+mentioning them. Either is honest; the current state is not.
+
+---
+
+## B-13 · Deadlines on plans and tasks are readable, unwritable and invisible
+
+**Noticed:** M8, by the lifecycle review. **Severity:** moderate.
+
+PRD §7 lists "optional deadlines on Goals, Plans, **Tasks**" as v1 scope. `setDeadline`
+accepts any non-swimlane ref, and `buildSweep` reads plan and task deadlines into the
+"Coming up" band. But `DeadlineField` is used in exactly one place — `GoalCard` — and
+neither `PlanRowModel` nor `TaskRowModel` has a deadline field at all.
+
+So a deadline on a plan or task, arriving by import or carried by `changeLevel` from a
+dated goal, surfaces only in "Coming up" and can be neither seen on the board nor cleared.
+
+**Fixed would mean:** a deadline on the row models, a field on the rows, and the same
+clearing affordance goals have.
+
+---
+
+## B-14 · Lane colour can be set once and never changed
+
+**Noticed:** M8, by the lifecycle review. **Severity:** minor.
+
+`setSwimlaneColor` has a mutation, a reducer case and a conformance test. It has no command
+and no UI. Colour is assigned by `nextLaneColor` on creation and is then permanent —
+including after a lane is deleted, when the modulo hands the same colour to a new one.
+
+**Fixed would mean:** the lane header offers the palette. The mutation is already there.
+
+---
+
+## B-15 · The Pile's "Done" destroys an item with no confirmation
+
+**Noticed:** M8, by the lifecycle review. **Severity:** moderate.
+
+Every other destructive path in the app goes through `RemoveDialog` and states its cost.
+The Pile's per-item "Done" goes straight to `deletePileItem` — permanent, no dialog, no
+restore, and the label reads as completion rather than deletion. B-2 records the
+"nothing is recorded" half of UC-1070; this is the other half.
+
+**Fixed would mean:** whatever UC-1070's "recorded as done" turns out to be, plus a label
+that says what the button does.
+
+---
+
+## B-16 · View state is never pruned when what it points at goes
+
+**Noticed:** M8, by the lifecycle review. **Severity:** minor, but visible.
+
+Two cases, both harmless to the document and both visible to the user:
+
+- `lens.expanded` keeps the id of a goal that has been deleted, archived or demoted.
+  `buildBoard` simply does not match it, but `Board.svelte` renders "close N open" from
+  `expanded.length` — so the app offers to close a card that is not on screen.
+- `session.pileFilter` survives page changes and is never reset. Promote or delete the last
+  item carrying a tag and `Pile.svelte` hides the whole tag row, stranding the page on
+  "Nothing tagged #x" with no control to clear it.
+
+**Fixed would mean:** `expanded` filtered against the goals that exist when the board is
+built, and the tag row shown whenever a filter is active whether or not anything matches.
+
+---
+
+## B-17 · An archived goal is stranded when no swimlane exists
+
+**Noticed:** M8, by the edge-state review. **Severity:** minor.
+
+`Archive.svelte` routes a goal whose lane is gone to a swimlane picker. With every lane
+deleted the picker iterates an empty list, so the user gets a "Put it in" row containing
+only **cancel** — no explanation, and the fix (go to the board and make a lane) is never
+stated. `Pile.svelte` has the identical dead end for "Make a goal" with zero lanes.
+
+**Fixed would mean:** both pickers say what is missing and offer to create a lane.

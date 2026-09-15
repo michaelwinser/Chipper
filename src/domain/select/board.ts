@@ -14,20 +14,43 @@ import type {
   BoardModel,
   CardModel,
   ChipModel,
+  DemotionTarget,
   LaneModel,
   Lens,
   RowModel,
   SizeLens,
 } from '../board'
-import type { Size } from '../primitives'
+import { byCreation, type Size } from '../primitives'
 import { formatDeadline } from '../format'
 import { layout } from '../layout'
 import type { Id } from '../primitives'
 import type { Goal, Plan, Ref, State, Task } from '../state'
-import { childPlans, childTasks, goalsInSwimlane, orderedSwimlanes, progressOf } from '../state'
+import {
+  childPlans,
+  childTasks,
+  goalsInSwimlane,
+  hasChildren,
+  orderedSwimlanes,
+  progressOf,
+} from '../state'
 
-const byCreation = <T extends { createdAt: string; id: string }>(a: T, b: T): number =>
-  a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)
+/**
+ * Every live goal except this one, as somewhere it could become a plan (UC-2059).
+ *
+ * Excluding the goal itself is `changeLevel`'s cycle rule (`reduce.ts`), and it belongs
+ * on this side of the boundary: as a board-level list every card had to re-filter it in
+ * Svelte, which put a product rule in a component and made it assertable only by mounting
+ * one. Archived goals are already out — `goalsInSwimlane` filters them — so the reducer
+ * cannot refuse anything this offers.
+ */
+function demotionTargetsFor(state: State, self: Goal): DemotionTarget[] {
+  return orderedSwimlanes(state).flatMap((lane) =>
+    goalsInSwimlane(state, lane.id)
+      .sort(byCreation)
+      .filter((goal) => goal.id !== self.id)
+      .map((goal) => ({ goalId: goal.id, label: `${lane.name} · ${goal.title}` })),
+  )
+}
 
 /** Where a starred ref sits: the goal that frames it, and the plans in between. */
 type Placement = { goal: Goal; chain: Plan[]; ref: Ref }
@@ -51,7 +74,15 @@ function placementOf(state: State, ref: Ref): Placement | null {
     cursor = task.parent
   }
 
+  // Cycle-safe, like every other walk in the domain (`state.ts`, `sweep.ts`). This one
+  // was not, and a `while` loop does not overflow the stack — so a cyclic document did
+  // not render a broken card or throw: the tab locked with no error at all. Reachable,
+  // because the development-only invariant check is off in production, the store does
+  // not roll back, and a `changeLevel` that produced cycles really did ship.
+  const walked = new Set<string>()
   while (cursor.type === 'plan') {
+    if (walked.has(cursor.id)) return null
+    walked.add(cursor.id)
     const plan = state.plans[cursor.id]
     if (!plan) return null
     chain.unshift(plan)
@@ -63,10 +94,17 @@ function placementOf(state: State, ref: Ref): Placement | null {
 }
 
 /** Every open task beneath something, flattened: starring X puts all of X in play. */
-function openTasksUnder(state: State, parent: { type: 'goal' | 'plan'; id: Id }): Task[] {
+function openTasksUnder(
+  state: State,
+  parent: { type: 'goal' | 'plan'; id: Id },
+  seen: Set<string> = new Set(),
+): Task[] {
+  const key = `${parent.type}:${parent.id}`
+  if (seen.has(key)) return []
+  seen.add(key)
   const direct = childTasks(state, parent).filter((t) => !t.done)
   const nested = childPlans(state, parent).flatMap((p) =>
-    openTasksUnder(state, { type: 'plan', id: p.id }),
+    openTasksUnder(state, { type: 'plan', id: p.id }, seen),
   )
   return [...direct, ...nested].sort(byCreation)
 }
@@ -103,6 +141,7 @@ function progressLabel(done: number, total: number): string {
   return total === 0 ? 'no tasks yet' : `${done} of ${total} done`
 }
 
+/** The same question the reducer asks before refusing to pile something. */
 function metaFor(state: State, goal: Goal): CardModel['meta'] {
   const progress = progressOf(state, { type: 'goal', id: goal.id })
   const label = goal.deadline === null ? null : formatDeadline(goal.deadline)
@@ -123,14 +162,18 @@ function fullContents(
   state: State,
   parent: { type: 'goal' | 'plan'; id: Id },
   indent: number,
+  seen: Set<string> = new Set(),
 ): RowModel[] {
+  const key = `${parent.type}:${parent.id}`
+  if (seen.has(key)) return []
+  seen.add(key)
   const rows: RowModel[] = []
   for (const task of childTasks(state, parent).sort(byCreation)) {
     rows.push(taskRow(task, indent, false))
   }
   for (const plan of childPlans(state, parent).sort(byCreation)) {
     rows.push(planRow(state, plan, indent, false))
-    rows.push(...fullContents(state, { type: 'plan', id: plan.id }, indent + 1))
+    rows.push(...fullContents(state, { type: 'plan', id: plan.id }, indent + 1, seen))
   }
   return rows
 }
@@ -159,6 +202,7 @@ function expandedCard(state: State, goal: Goal, starredKeys: Set<string>): CardM
     meta: metaFor(state, goal),
     detail: 'tasks',
     expanded: true,
+    holdsAnything: hasChildren(state, { type: 'goal', id: goal.id }),
     rows,
     done:
       finished.length > 0 ? { tasks: finished.map((r) => ({ id: r.id, title: r.title })) } : null,
@@ -173,6 +217,7 @@ function expandedCard(state: State, goal: Goal, starredKeys: Set<string>): CardM
       rows.length === 0 && finished.length === 0
         ? { text: 'Nothing in here yet — add a task or a plan' }
         : null,
+    demoteUnder: demotionTargetsFor(state, goal),
   }
 }
 
@@ -240,11 +285,13 @@ function activeCard(
       meta,
       detail: 'title-only',
       expanded: false,
+      holdsAnything: hasChildren(state, { type: 'goal', id: goal.id }),
       done: null,
       guidance: null,
       rows: [],
       folded: null,
       empty: null,
+      demoteUnder: demotionTargetsFor(state, goal),
     }
   }
 
@@ -356,6 +403,7 @@ function activeCard(
     meta,
     detail: 'tasks',
     expanded: false,
+    holdsAnything: hasChildren(state, { type: 'goal', id: goal.id }),
     done: null,
     guidance: null,
     rows: filtered,
@@ -370,6 +418,7 @@ function activeCard(
         : unfiltered.length === 0
           ? { text: 'Nothing to do in here yet — open it to add a task or a plan' }
           : { text: lensEmptyText(unfiltered, size) },
+    demoteUnder: demotionTargetsFor(state, goal),
   }
 }
 
@@ -382,11 +431,13 @@ function quietCard(state: State, goal: Goal): CardModel {
     meta: metaFor(state, goal),
     detail: 'title-only',
     expanded: false,
+    holdsAnything: hasChildren(state, { type: 'goal', id: goal.id }),
     done: null,
     guidance: null,
     rows: [],
     folded: null,
     empty: null,
+    demoteUnder: demotionTargetsFor(state, goal),
   }
 }
 
@@ -468,7 +519,15 @@ export function buildBoard(state: State, lens: Lens): BoardModel {
       resting = { summary: 'Nothing here yet' }
     }
 
-    return { id: lane.id, name: lane.name, color: lane.color, cards, chips, collapsed, resting }
+    return {
+      id: lane.id,
+      name: lane.name,
+      color: lane.color,
+      cards,
+      chips,
+      collapsed,
+      resting,
+    }
   })
 
   return { lanes, lens }

@@ -47,7 +47,7 @@ Concurrency, multi-device sync, and merge conflicts. v1 is single-user, single-d
 
 Three consequences, all of which we want:
 
-- **The mockups become fixtures.** Roughly twenty of the thirty use cases in PRD §11 become millisecond tests with no DOM. UC-3060 is `expect(board.lanes.flatMap(l => l.cards).every(c => c.detail === 'title-only')).toBe(true)`, not a human squinting at a browser.
+- **The mockups become fixtures.** Most of the 54 use cases in PRD §11 become millisecond tests with no DOM. UC-3060 is `expect(board.lanes.flatMap(l => l.cards).every(c => c.detail === 'title-only')).toBe(true)`, not a human squinting at a browser.
 - **Svelte components stay trivial.** They render a `BoardModel` and emit intents. If a component contains an `if` about product behaviour, it belongs in `domain`.
 - **Product principles become type-level guarantees.** `BoardModel` has no field for "things you didn't finish". You cannot render a guilt tally because there is nowhere for the number to come from. That is stronger than a test, because it fails at compile time and it fails for code nobody thought to test.
 
@@ -105,16 +105,18 @@ Each top-level map becomes a Firestore collection with no reshaping. The parent 
 
 ### 3.3 Invariants
 
-Checked in `domain/invariants.ts`, asserted by the reducer in development builds, and covered by tests:
+Six of the eight below are codes in `domain/invariants.ts`; items 4 and 8 are marked where they are not, because a blanket claim that every one is checked is the kind that stops people looking. `PROBLEM_CODES` is the list of codes, and `test/invariants.test.ts` asserts every one of them is provoked by a hand-built broken state — so a code added later cannot go untested.
+
+Asserted after **every write** in development builds — in `store/local.ts` rather than in the reducer, which stays pure and knows nothing about what kind of build it is in; the store is the one funnel every mutation passes through, so the check cannot be skipped by a caller. It is off in production, where it would cost a walk of the document per keystroke. Also run on every import, and covered by tests that hand-build a broken state for each code below and prove it fires:
 
 1. Every entity's `parent` resolves to an entity that exists — **except** an archived Goal's swimlane, which may be gone. PRD §5.8 requires it: "if that Swimlane is gone, restore asks which one" is only meaningful if the state can hold that. Reassigning archived goals when their lane is deleted would silently rewrite history for work that is already over.
 2. No cycles in the parent chain.
 3. A Goal belongs to exactly one Swimlane (PRD §5.1).
-4. Plan nesting depth ≤ 3 is **guidance, not enforcement** (PRD D5) — the invariant records the depth, the view model surfaces it, nothing blocks.
+4. Plan nesting depth ≤ 3 is **guidance, not enforcement** (PRD D5). This is not in `checkInvariants` and should not be — an over-deep chain is a legal document, not a broken one. The depth is measured in `select/board.ts` and surfaced as `CardModel.guidance`; nothing blocks. Listed here because the rule belongs with the others, marked because it is the one that is not a check.
 5. Every `Ref` in `priorities` resolves; refs are unique; a ref to a done Task is removed when it completes.
 6. A Pile item is never also an entity — promotion (UC-1040/1050) deletes the Pile item in the same mutation.
 7. No `Ref` in `priorities` resolves into an archived Goal's subtree — `archiveGoal` clears them in the same mutation (UC-2130).
-8. An archived Goal keeps every child in place; nothing is reparented by archiving or restoring.
+8. An archived Goal keeps every child in place; nothing is reparented by archiving or restoring. Also not a check — it is a property of the mutations rather than of a document, so it is enforced where it can be: `archiveGoal` sets a flag and moves nothing, and `changeLevel` refuses any ref whose owning goal is archived, which was the one route out (`test/ladder.test.ts`).
 
 ---
 
@@ -122,11 +124,19 @@ Checked in `domain/invariants.ts`, asserted by the reducer in development builds
 
 `schemaVersion` is present from the first commit and appears in both stored state and the export envelope.
 
+One file, `domain/migrations.ts`, holding an ordered `MIGRATIONS` list applied in sequence:
+
+```ts
+type Migration = {
+  from: number          // applied to an envelope at this version, producing from + 1
+  describe: string
+  up: (state: unknown) => unknown   // pure; depends on nothing outside its input
+}
 ```
-migrations/
-  001-initial.ts      (v0 → v1)
-  registry.ts         ordered list, applied in sequence
-```
+
+One step so far, added at M8: `dropStarsInsideArchivedGoals` (v1 → v2). No SHAPE changed — what changed is the set of documents considered valid, when invariant 7 started being enforced over an archived goal's whole subtree rather than just the goal ref. Roughly 8% of documents M7 wrote and called clean are refused by M8, and a refusal on load is the blocked screen rather than a warning, so the step drops the offending stars: the same filter `archiveGoal` already applies. `test/fixtures/exports/v1-m7-archived-star.json` is a document in that exact shape, and the tests assert it fails unmigrated and opens after.
+
+The machinery is also tested against synthetic versions, because the first real migration should not be the first test of whether migrating works at all.
 
 On load: if `stored.schemaVersion < CURRENT`, apply migrations in order, persist the result, continue. If `stored.schemaVersion > CURRENT`, refuse to load and say so plainly — a newer file in an older app is a data-loss trap, not something to guess at.
 
@@ -167,9 +177,12 @@ Business rules therefore cannot drift between client and server, because there i
 
 Mutations are plain typed data — no functions, no closures — so they serialize, replay and become HTTP request bodies unchanged.
 
+The complete list is `MUTATION_KINDS` in `domain/mutations.ts`, held in step with the union by a compile-time exhaustiveness check (`_allKindsListed` fails to build if a kind is added without being listed). `test/generator.test.ts` asserts the trace generator emits every one of them except `replaceAll`, which is excluded because it discards the history being built — so a new mutation cannot quietly escape the property tests.
+
 **Structure**
-`createSwimlane` · `updateSwimlane` · `reorderSwimlanes`
-`createGoal` · `createPlan` · `createTask` · `updateEntity` · `moveEntity` · `setTaskDone`
+`createSwimlane` · `setSwimlaneColor` · `reorderSwimlanes`
+`createGoal` · `createPlan` · `createTask`
+`renameEntity` · `setNotes` · `setTaskSize` · `setDeadline` · `setTaskDone`
 
 `changeLevel { ref, to: 'goal'|'plan'|'task', newId, parent?, at }` — **the ladder** (PRD §5.8), one mutation for all four moves including the signature Task → Plan (UC-2050). Non-destructive: title, notes, deadline, star and children carry over; the new id is a parameter so the mutation stays pure and replayable. Unifying these was a deliberate choice — four near-identical mutations would drift, and the reducer case is the same shape for all of them.
 
@@ -177,35 +190,41 @@ Mutations are plain typed data — no functions, no closures — so they seriali
 `deleteGoal { id, at }` — destroys the subtree. The *dialog* offers Archive (UC-2105); the mutation does not, because a mutation that sometimes does something else is untestable.
 `deletePlan { id, disposition: 'promote-children' | 'cascade', at }` — default promotes Tasks to the Plan's parent (UC-2106, PRD D11).
 `deleteTask { id, at }`
-`deleteSwimlane { id, disposition: { kind: 'move', toSwimlaneId } | { kind: 'pile' }, at }` — a destination is **required by the type**, so a silent cascade is not expressible (UC-2014).
+`deleteSwimlane { id, disposition: { kind: 'move', toSwimlaneId } | { kind: 'archive', pileIds }, at }` — a destination is **required by the type**, so a silent cascade is not expressible (UC-2014). `archive` puts the goals away intact and turns **unfinished** loose tasks into pile items; `pileIds` is `Record<taskId, newPileId>`, keyed by task rather than positional, so the mutation stays pure and replayable and cannot pair the wrong idea with the wrong task. Finished loose tasks are destroyed rather than converted — an idea has no notion of being done, and routing completed work through the Pile dropped `done`, `doneAt`, `notes` and `deadline`. `buildRemoval` states that count before it happens.
+
+**Priorities and the pile**
+`addPriority` · `removePriority` · `setPriorities`
+`capture` · `editPileItem` · `promotePileItem` · `sendToPile` · `deletePileItem`
+
+**Wholesale**
+`replaceAll { state, at }` — the import path (UC-6020), and the only mutation that takes a document rather than editing one. It is why the development-build invariant check sits after the reducer in `store/local.ts` rather than relying on per-mutation rules. It returns a shallow copy rather than the payload itself, so the store never aliases a mutation's data.
+
+**Ids** are supplied by the caller and are unique across the **whole document**, not within a collection — `idTaken` in the reducer is that check, and every mutation that mints an id asks it. Invariant 6 (a pile item is never also an entity) depends on it.
 
 **Archive**
 `archiveGoal { id, at }` — sets the flag and clears any priority refs into its subtree, in one atomic mutation.
 `restoreGoal { id, swimlaneId?, at }` — `swimlaneId` required only when the original lane is gone (UC-2132).
 
-**Pile**
-`capture` · `promotePileItem` · `sendToPile` (UC-1060) · `deletePileItem`
+The sweep (UC-3030) replaces the whole priority set in one atomic `setPriorities`, which is exactly why priorities are a separate collection.
 
-**Priorities**
-`addPriority` · `removePriority` · `setPriorities` — the sweep (UC-3030) replaces the whole set in one atomic mutation, which is exactly why priorities are a separate collection.
-
-**Data**
-`replaceAll` — import (UC-6030).
-
-Roughly twenty mutations. Each is one case in the reducer and one test.
+27 mutations — `MUTATION_KINDS` is the list, and `_allKindsListed` fails to compile if the union gains one it does not mention. Each is one case in the reducer and one test.
 
 Two shapes above are load-bearing and worth stating plainly: **`deleteSwimlane` cannot be constructed without a destination**, and **`deletePlan` cannot be constructed without saying what happens to its Tasks**. Both are product rules (PRD §5.8) hoisted into the type system, where they are enforced for code nobody remembered to test.
 
 ### 5.4 The conformance suite
 
-`store/conformance.ts` exports a suite that takes a `Store` factory and runs it. Every adapter imports it and runs it against itself:
+`test/support/conformance.ts` exports a suite that takes a `Store` factory and a reference adapter to agree with. It lives under `test/` because it imports `vitest`: in `src/store/` it was one ordinary import from the shipped bundle, and the architecture guard could not see package imports at all.
 
-1. Read on empty returns a valid empty state that satisfies the JSON Schema.
-2. Every mutation in the vocabulary applies and is observable through `read()`.
-3. State survives destroying the adapter and constructing a new one over the same backing.
-4. Subscribers fire exactly once per applied mutation.
-5. An unknown or malformed mutation is rejected without corrupting state.
-6. Applying the same mutation sequence to two adapters yields deep-equal state.
+1. Read on empty returns a valid empty state, checked against the JSON Schema with `ajv`. The suite lives in `test/support/` for this reason: in `src/store/` it could not import `ajv`, so this case was `toEqual(emptyState())` — a tautology against the constructor the store itself uses.
+2. Every kind in `MUTATION_KINDS` is exercised. The suite asserts the coverage set is complete before running it, so adding a mutation without adding a sample fails here rather than passing quietly.
+3. Each mutation is observable through `read()`.
+4. State survives destroying the adapter and constructing a new one over the same backing.
+5. Subscribers fire exactly once per applied mutation.
+6. A broken mutation is rejected without corrupting what is already there.
+7. The same sequence applied twice gives the same state.
+8. Two *different* adapters reach the same state from the same sequence. `describeStoreConformance` takes a reference-adapter factory and runs this itself, so an `HttpStore` author who runs the suite gets it — while it lived outside the suite, §5.4's closing sentence was false for the one case that catches serialization loss.
+9. `create()` returns a new instance each time, not a shared singleton.
+10. A state that breaks an invariant is refused or stored whole, never silently mangled — the case `replaceAll` most needs, being the only mutation that takes a document.
 
 When `HttpStore` is written, it is finished when this suite is green. That is the contract, and it is executable.
 
@@ -215,31 +234,52 @@ When `HttpStore` is written, it is finished when this suite is green. That is th
 
 ### 6.1 `BoardModel`
 
-```ts
-type Lens = { focus: 'priorities' | 'everything', size: 'any' | 'S' | 'M' | 'L' }
+`domain/board.ts` is authoritative; this is the shape it holds and why each field is there.
 
-type BoardModel = { lanes: LaneModel[], lens: Lens }
+```ts
+type Lens = {
+  focus: 'priorities' | 'everything'
+  size: 'any' | 'S' | 'M' | 'L'
+  expanded: Id[]                           // goals opened to look inside (UC-5020)
+}
+
+type BoardModel = {
+  lanes: LaneModel[]
+  lens: Lens
+}
 
 type LaneModel = {
   id, name, color
   cards: CardModel[]
-  chips: ChipModel[]                       // loose starred Tasks (UC-3023)
+  chips: ChipModel[]                       // loose Tasks with no Goal above them (UC-3023)
   collapsed: { count: number } | null      // "2 more in Work"
   resting: { summary: string } | null      // "1 goal, nothing prioritised right now"
 }
 
 type CardModel = {
   goalId
-  header: { title: string, quiet: boolean, starred: boolean }
-  meta:   { done: number, total: number, deadline: IsoDate | null }
-  detail: 'tasks' | 'title-only'           // degradation under load
+  emphasis: 'active' | 'quiet'             // in play, or shown only because focus is Everything
+  header: { title, contextual: boolean, starred: boolean }
+  meta:   { done, total, label: string, deadline: { iso, label } | null }
+  expanded: boolean
+  holdsAnything: boolean                   // is anything under it at all — NOT rows.length
+  done: { tasks: { id, title }[] } | null  // finished work, as progress (UC-5010)
+  guidance: { text: string } | null        // gentle, never a block (UC-2070, D5)
+  detail: 'tasks' | 'title-only'           // degradation under load (UC-3060)
   rows:   RowModel[]                       // plan and task rows, with indent
   folded: { text: string } | null          // "2 other plans in this goal"
   empty:  { text: string } | null          // "nothing small here — your starred task is an M"
+  demoteUnder: { goalId, label }[]         // every OTHER live goal (UC-2059)
 }
 ```
 
-There is no `overdueCount`, no `missedCount`, no `streak`, no `completionRate`. The absence is the point (§2.1).
+`holdsAnything` exists because inferring it from the drawn rows was wrong: it was `rows.length === 0`, which is also true of a title-only card and of a goal whose tasks are all done — so "to the Pile" appeared on goals the reducer then refused.
+
+`demoteUnder` is per CARD and not per board, with the card's own goal already excluded. As a board-level list every card had to filter itself out in Svelte, which is `changeLevel`'s cycle rule restated in a component; and no artboard draws a picker's contents, so the field had to be carved out of the golden-fixture comparison. A field the fixtures cannot describe is a field on the wrong model.
+
+`LaneModel` carried a `crowding` field for part of M8. It is gone — see BACKLOG B-9 for why the signal it fed was worse than nothing.
+
+There is no `overdueCount`, no `missedCount`, no `streak`, no `completionRate`. `_noGuiltFields` makes that a compile error rather than a review note (§9.5), every selector module asserts it, and `test/shape.test.ts` pins each model's whole field list — because a name-based guard only catches the names someone thought of, and review demonstrated that by adding `tally: 'some of it was finished'` to every Archive entry and watching 549 tests pass.
 
 ### 6.2 The star-level rule
 
@@ -248,7 +288,7 @@ One rule, four cases (PRD §5.7). For each starred `Ref`, walk to its owning Goa
 Archived Goals are excluded before any of this runs; the Archive view (§6.5) inverts the same filter.
 
 - `header.starred` = the Goal itself is in `priorities`
-- `header.quiet` = `!header.starred` — when the commitment is below the Goal, the Goal is context, not a promise
+- `header.contextual` = `!header.starred` — when the commitment is below the Goal, the Goal is context, not a promise
 - `rows` = the union of visible subtrees for each starred ref under that Goal, preserving Plan → Task nesting as `indent`
 - `folded` = a count of everything under the Goal that is not visible, at every level
 
@@ -309,19 +349,22 @@ Injecting `now` and `newId` is what makes every command deterministic under test
 
 ## 8. The UI layer
 
-Svelte 5 components, each mapping to something already drawn:
+Svelte 5 components. The table is what SHIPPED — it was written ahead of the code and named six components that were never built (`GoalDetail`, `ComingUp`, `GoalMenu`, `AddGoalInline`, `LaneHeader`, `DeleteDialog`), which is a map of a building that does not exist.
 
 | Component | Artboard |
 |---|---|
-| `Board` + `Lane` + `GoalCard` + `TaskRow` + `PlanRow` | `Main`, `Overloaded`, `SizeLens`, `Everything`, `StarDepth` |
-| `LensControls` (focus toggle, size lens) | header of every board artboard |
-| `GoalDetail` | `GoalDetail` |
-| `SetPriorities` + `ComingUp` | `Priorities` |
+| `Board` + `Lane` + `GoalCard` + `TaskRow` + `PlanRow` + `Chip` | `Main`, `Overloaded`, `SizeLens`, `Everything`, `StarDepth` |
+| `LensControls` (focus toggle, size lens), `TopBar` | header of every board artboard |
+| `SetPriorities` (the sweep and the "Coming up" band) | `Priorities` |
 | `CaptureOverlay` | `QuickCapture` |
 | `BreakDownDialog` | `BreakDown` |
 | `Pile` | `ThePile` |
-| `GoalMenu` (the ladder, archive, delete), `AddGoalInline`, `LaneHeader` (rename, reorder) | `Lifecycle` |
-| `DeleteDialog` (with the archive alternative), `Archive` | `DeleteArchive` |
+| `GoalCard`'s own controls (the ladder, archive, delete), `AddInline`, `Lane`'s header | `Lifecycle` |
+| `RemoveDialog` (with the archive alternative), `Archive` | `DeleteArchive` |
+| `Blocked`, `Unavailable`, `ImportDialog`, `Notice` | nothing — added after the artboards, see PRD §12 |
+| `EditableText`, `DeadlineField`, `StarButton`, `Icon` | shared pieces, drawn inside the others |
+
+`GoalDetail` is absent because the artboard is (PRD §12): drilling in became opening a card in place at M4, and a second surface would be the mode the view exists to avoid.
 
 Rules: components receive a view model and emit intents. No component fetches, computes product rules, or reaches into `store`. The design tokens from the mockups (palette, type scale, radii, the reservation of cherry for priority and sage for done) move into one `tokens.css` and are referenced by variable — the token drift caught in the mockup review is the exact failure mode this prevents.
 
@@ -381,7 +424,7 @@ Anything that is a rule is a test, not a review item. A test runs on every commi
 | Walk `src/`, parse imports, fail on a wrong-direction dependency | layering as a *contract* rather than a convention |
 | Grep `src/domain/` for `Date.now`, `new Date(`, `Math.random`, `crypto.`, `window`, `document`, `localStorage` | hidden clock, randomness or I/O in the layer that claims to be pure |
 | Deep-freeze state in every reducer test | the reducer mutating its input — the bug that makes undo and optimistic updates silently wrong |
-| Enumerate the `Mutation` union; assert every kind has a reducer case **and** a named test | a mutation added without either |
+| Enumerate the `Mutation` union; assert every kind has a reducer case, is exercised by the conformance suite, and is emitted by the trace generator | a mutation added without a rule, a contract case, or property coverage |
 | Compile-time assertion that `CardModel` and `BoardModel` have no key in a forbidden list (`overdueCount`, `streak`, `completionRate`, `missed`, `abandoned`) | someone reintroducing the guilt tally §2.1 exists to prevent |
 
 The last one turns the principle argument in §2.1 into a build failure, which is the point: the guarantee should not depend on anyone having read this document.
@@ -394,7 +437,9 @@ The last one turns the principle argument in §2.1 into a build failure, which i
 
 `schema/*.schema.json` defines every entity and the export envelope. It is load-bearing on day one because export/import (UC-6010/6020) makes the JSON format a public surface the moment a file leaves the app.
 
-TypeScript types are generated from the schemas at build time, so the two cannot drift. The schemas are validated in tests with `ajv`; they are not shipped in the runtime bundle.
+TypeScript types are **hand-written**, not generated. Drift between the two is caught in test instead: `additionalProperties: false` plus complete `required` lists mean that validating generated states against the schema catches both directions — a field the schema does not know about, and a field the types have dropped. The schemas are validated with `ajv`; they are not shipped in the runtime bundle.
+
+This is weaker than generation and deliberately so: generation would add a build step and a code generator to a project whose whole toolchain promise is that `npm install && npm run dev` is the entire setup. The drift test is what buys that back, which is why `test/generator.test.ts` reads the `$defs` keys out of the schema file and requires a census counter for each — a generator that stopped emitting plans would otherwise leave the `plan` and `size` definitions validated against no data at all, with nothing failing.
 
 ### 10.2 The export envelope
 
@@ -449,12 +494,14 @@ Makefile  mise.toml  .nvmrc  Dockerfile  package.json  package-lock.json
 schema/          *.schema.json          — source of truth for data
 src/
   domain/        types, invariants, reduce, selectors/board, layout constants
-  store/         port, local, memory, conformance
+  store/         port, local, memory
   app/           commands, clock, ids, state container
   ui/            Svelte components, tokens.css
-  migrations/    numbered, each with a fixture test
-test/            fixtures/ (mockup-derived board fixtures), architecture.test.ts
-mocks/           the ten .dc.html artboards + canvas.json
+  domain/migrations.ts  the migration chain, each step with a fixture test
+src/fixtures/    board fixtures transcribed from the artboards, and the states behind them
+test/            architecture.test.ts, shape.test.ts, support/ (conformance, generator)
+test/fixtures/   frozen export files — see its README for the provenance rules
+mocks/           the twelve .dc.html artboards + canvas.json
 ```
 
 ---

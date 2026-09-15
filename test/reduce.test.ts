@@ -9,7 +9,7 @@ import { RuleError } from '../src/domain/errors'
 import { MUTATION_KINDS, type Mutation } from '../src/domain/mutations'
 import { emptyState, progressOf, type State } from '../src/domain/state'
 import { checkInvariants } from '../src/domain/invariants'
-import { sampleSequence } from '../src/store/conformance'
+import { sampleSequence } from './support/conformance'
 import { deepFreeze } from './support/freeze'
 import { generateState } from './support/generate'
 

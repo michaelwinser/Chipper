@@ -13,7 +13,7 @@ import type { Mutation } from './mutations'
 import { parseTags } from './tags'
 import type { Id } from './primitives'
 import type { EntityRef, Goal, Parent, Plan, Ref, State, Task } from './state'
-import { childPlans, childTasks, descendants } from './state'
+import { childPlans, childTasks, descendants, hasChildren, owningGoal } from './state'
 
 function parentExists(state: State, parent: Parent): boolean {
   if (parent.type === 'swimlane') return parent.id in state.swimlanes
@@ -21,24 +21,44 @@ function parentExists(state: State, parent: Parent): boolean {
   return parent.id in state.plans
 }
 
-function hasChildren(state: State, ref: EntityRef): boolean {
-  if (ref.type === 'swimlane') {
-    return (
-      Object.values(state.goals).some((g) => g.swimlaneId === ref.id) ||
-      childTasks(state, { type: 'swimlane', id: ref.id }).length > 0 ||
-      childPlans(state, { type: 'swimlane', id: ref.id }).length > 0
-    )
-  }
-  if (ref.type === 'task') return false
-  const parent: Parent = { type: ref.type, id: ref.id }
-  return childPlans(state, parent).length > 0 || childTasks(state, parent).length > 0
-}
-
 function exists(state: State, ref: EntityRef): boolean {
   return ref.id in state[`${ref.type}s` as const]
 }
 
 const sameRef = (a: Ref, b: Ref): boolean => a.type === b.type && a.id === b.id
+
+/**
+ * The goal a ref sits under, archived or not. Starring anything inside an archived goal
+ * puts a priority on work that renders nowhere and cannot be unstarred from the board —
+ * invariant 7 forbids the whole subtree, not just the goal itself.
+ */
+/**
+ * Whether an id is already taken anywhere in the document.
+ *
+ * Invariant 6 says a pile item is never also an entity, and `changeLevel` was the only
+ * mutation that checked it — its own comment ("an id is unique across the document, not
+ * merely within its own collection") described a rule one of five id-minting mutations
+ * enforced. `capture`, `sendToPile`, `promotePileItem` and `deleteSwimlane`'s archive
+ * branch could all produce the collision, and the three `create*` mutations never looked
+ * at the pile at all. UUIDs make it improbable in the app; the reducer is the rule layer
+ * and the same vocabulary is used by import and by a future server.
+ */
+function idTaken(state: State, id: Id): boolean {
+  return id in state.goals || id in state.plans || id in state.tasks || id in state.pile
+}
+
+function archivedOwnerOf(state: State, ref: Ref): Goal | null {
+  const goal =
+    ref.type === 'goal'
+      ? state.goals[ref.id]
+      : ref.type === 'plan'
+        ? owningGoal(state, { type: 'plan', id: ref.id })
+        : (() => {
+            const task = state.tasks[ref.id]
+            return task ? owningGoal(state, task.parent) : null
+          })()
+  return goal?.archived === true ? goal : null
+}
 
 /**
  * Removes entities and, in the same step, every star pointing at one of them. Doing it
@@ -68,12 +88,14 @@ function dropAll(state: State, gone: { goals?: Id[]; plans?: Id[]; tasks?: Id[] 
   }
 }
 
-/** Walks up to the swimlane something ultimately sits in. */
-function swimlaneOf(state: State, parent: Parent): string | null {
+/** Walks up to the swimlane something ultimately sits in. Cycle-safe (see `descendants`). */
+function swimlaneOf(state: State, parent: Parent, seen: Set<string> = new Set()): string | null {
   if (parent.type === 'swimlane') return parent.id
   if (parent.type === 'goal') return state.goals[parent.id]?.swimlaneId ?? null
+  if (seen.has(parent.id)) return null
+  seen.add(parent.id)
   const plan = state.plans[parent.id]
-  return plan ? swimlaneOf(state, plan.parent) : null
+  return plan ? swimlaneOf(state, plan.parent, seen) : null
 }
 
 export function reduce(state: State, m: Mutation): State {
@@ -124,7 +146,7 @@ export function reduce(state: State, m: Mutation): State {
     }
 
     case 'createGoal': {
-      rule(!(m.id in state.goals), 'duplicate-id', `goal ${m.id} already exists`)
+      rule(!idTaken(state, m.id), 'duplicate-id', `${m.id} already exists`)
       rule(m.swimlaneId in state.swimlanes, 'not-found', `no swimlane ${m.swimlaneId}`)
       return {
         ...state,
@@ -146,7 +168,7 @@ export function reduce(state: State, m: Mutation): State {
     }
 
     case 'createPlan': {
-      rule(!(m.id in state.plans), 'duplicate-id', `plan ${m.id} already exists`)
+      rule(!idTaken(state, m.id), 'duplicate-id', `${m.id} already exists`)
       rule(parentExists(state, m.parent), 'not-found', 'plan parent does not exist')
       rule(m.parent.type !== 'swimlane', 'bad-parent', 'a plan belongs to a goal or another plan')
       return {
@@ -167,7 +189,7 @@ export function reduce(state: State, m: Mutation): State {
     }
 
     case 'createTask': {
-      rule(!(m.id in state.tasks), 'duplicate-id', `task ${m.id} already exists`)
+      rule(!idTaken(state, m.id), 'duplicate-id', `${m.id} already exists`)
       rule(parentExists(state, m.parent), 'not-found', 'task parent does not exist')
       return {
         ...state,
@@ -270,11 +292,7 @@ export function reduce(state: State, m: Mutation): State {
         'already-done',
         'that is already done',
       )
-      rule(
-        !(m.ref.type === 'goal' && state.goals[m.ref.id]?.archived === true),
-        'archived',
-        'that goal is archived',
-      )
+      rule(archivedOwnerOf(state, m.ref) === null, 'archived', 'that is archived')
       if (state.priorities.some((ref) => sameRef(ref, m.ref))) return state
       return { ...state, priorities: [...state.priorities, m.ref] }
     }
@@ -287,11 +305,7 @@ export function reduce(state: State, m: Mutation): State {
           'already-done',
           'that is already done',
         )
-        rule(
-          !(ref.type === 'goal' && state.goals[ref.id]?.archived === true),
-          'archived',
-          'that goal is archived',
-        )
+        rule(archivedOwnerOf(state, ref) === null, 'archived', 'that is archived')
       }
       const seen = new Set<string>()
       const refs = m.refs.filter((ref) => {
@@ -352,14 +366,21 @@ export function reduce(state: State, m: Mutation): State {
       rule(m.id in state.swimlanes, 'not-found', `no swimlane ${m.id}`)
       const here: Parent = { type: 'swimlane', id: m.id }
       const goals = Object.values(state.goals).filter((g) => g.swimlaneId === m.id)
+      const liveGoals = goals.filter((g) => !g.archived)
       const loose = childTasks(state, here)
 
       if (m.disposition.kind === 'move') {
         const to = m.disposition.toSwimlaneId
         rule(to in state.swimlanes, 'not-found', `no swimlane ${to}`)
         rule(to !== m.id, 'same-swimlane', 'that is the swimlane being deleted')
+        // Archived goals keep pointing at the lane they came from, dangling, exactly as
+        // PRD §10 requires: reassigning them would rewrite history for work already over.
+        // Restore is where that reference gets resolved, by asking.
         const moved = { ...state.goals }
-        for (const goal of goals) moved[goal.id] = { ...goal, swimlaneId: to, updatedAt: m.at }
+        for (const goal of goals) {
+          if (goal.archived) continue
+          moved[goal.id] = { ...goal, swimlaneId: to, updatedAt: m.at }
+        }
         const movedTasks = { ...state.tasks }
         for (const task of loose) {
           movedTasks[task.id] = { ...task, parent: { type: 'swimlane', id: to }, updatedAt: m.at }
@@ -369,20 +390,38 @@ export function reduce(state: State, m: Mutation): State {
         return { ...state, swimlanes, goals: moved, tasks: movedTasks }
       }
 
-      // Archive the goals whole, and turn loose tasks into pile items — which loses
-      // only their size. Nothing is destroyed, and every goal can be restored.
+      // Archive the goals whole, and turn the UNFINISHED loose tasks into pile items,
+      // which loses only their size.
+      //
+      // Finished ones are destroyed instead, and the dialog says so. The Pile holds
+      // ideas, and an idea has no notion of being done — routing completed work through
+      // it (as this did, for every loose task, silently) dropped `done`, `doneAt`,
+      // `deadline` and `notes` and put finished work back in the backlog as something
+      // still to do. PRD §5.5: "done items belong to structure, not to the backlog";
+      // DESIGN §3.2: "Done tasks stay in place; they are never moved or archived." When
+      // the structure itself is going, the only honest options are destroy it or refuse
+      // the delete — and `buildRemoval` states the count so the choice is the user's.
+      const ids = m.disposition.pileIds
+      const keeping = loose.filter((t) => !t.done)
+      for (const task of keeping) {
+        const pileId = ids[task.id]
+        rule(pileId !== undefined, 'wrong-ids', `no new id given for task ${task.id}`)
+        rule(!idTaken(state, pileId), 'duplicate-id', `${pileId} already exists`)
+      }
       rule(
-        m.disposition.pileIds.length === loose.length,
-        'wrong-ids',
-        'one new id is needed for each loose task',
+        new Set(Object.values(ids)).size === Object.keys(ids).length,
+        'duplicate-id',
+        'the same new id was given to two tasks',
       )
+
       let next = state
-      for (const goal of goals) next = reduce(next, { kind: 'archiveGoal', id: goal.id, at: m.at })
+      for (const goal of liveGoals)
+        next = reduce(next, { kind: 'archiveGoal', id: goal.id, at: m.at })
       const pile = { ...next.pile }
-      loose.forEach((task, i) => {
-        const id = m.disposition.kind === 'archive' ? m.disposition.pileIds[i]! : ''
+      for (const task of keeping) {
+        const id = ids[task.id]!
         pile[id] = { id, text: task.title, tags: [], createdAt: m.at }
-      })
+      }
       const tasks = { ...next.tasks }
       for (const task of loose) delete tasks[task.id]
       const swimlanes = { ...next.swimlanes }
@@ -445,7 +484,29 @@ export function reduce(state: State, m: Mutation): State {
     case 'changeLevel': {
       rule(exists(state, m.ref), 'not-found', `no ${m.ref.type} ${m.ref.id}`)
       rule(m.ref.type !== m.to, 'no-change', `that is already a ${m.to}`)
-      rule(!(m.newId in state[`${m.to}s` as const]), 'duplicate-id', `${m.newId} already exists`)
+      // An id is unique across the document, not merely within its own collection: the
+      // board keys rows by id, and the pile must never collide with an entity. `idTaken`
+      // is that question, asked by every mutation that mints one.
+      rule(!idTaken(state, m.newId), 'duplicate-id', `${m.newId} already exists`)
+      // Archived work comes back through restore, which asks which lane. Climbing the
+      // ladder must not be a side door onto the board.
+      //
+      // This checked `ref.type === 'goal'` only, which meant a PLAN or TASK inside an
+      // archived goal could climb out: `changeLevel(plan → goal)` produced a live goal on
+      // the board carrying every child task with it, silently emptying the archived goal
+      // that held them. `archivedOwnerOf` is the same question invariant 7 asks, and was
+      // already being used two rules over by `addPriority` — it just was not asked here.
+      rule(
+        archivedOwnerOf(state, m.ref) === null,
+        'archived',
+        'restore it first — the ladder is not a way back out of the archive',
+      )
+      // A finished task has a completion to lose; nothing on the ladder can carry it.
+      rule(
+        !(m.ref.type === 'task' && state.tasks[m.ref.id]?.done === true),
+        'already-done',
+        'that is already done',
+      )
 
       const fromKey = `${m.ref.type}s` as 'goals' | 'plans' | 'tasks'
       const source = state[fromKey][m.ref.id]!
@@ -462,6 +523,38 @@ export function reduce(state: State, m: Mutation): State {
         'has-children',
         'a task holds nothing — this still has things under it',
       )
+
+      // A thing cannot be moved inside itself. Without this the reducer accepts a goal
+      // demoted under its own child, producing two plans that are each other's ancestor:
+      // the subtree becomes unreachable, and every later delete recurses forever. Found
+      // by the generator at M8, once it could emit changeLevel at all.
+      if (m.parent !== undefined && here !== null) {
+        const below = descendants(state, here)
+        const inside = new Set<string>([
+          `${m.ref.type}:${m.ref.id}`,
+          ...below.plans.map((p) => `plan:${p.id}`),
+          ...below.tasks.map((x) => `task:${x.id}`),
+        ])
+        rule(
+          !inside.has(`${m.parent.type}:${m.parent.id}`),
+          'cycle',
+          'that would put this inside itself',
+        )
+      }
+
+      // ...and the destination is bound by the same rule as the source. Demoting a
+      // starred item under an archived goal was accepted, and produced a document that
+      // breaks invariant 7 — which the loader enforces. Nothing failed at the time: the
+      // development-only check is off in production and the store does not roll back, so
+      // the user's NEXT session opened on the blocked screen, from one ordinary click.
+      if (m.parent !== undefined && m.parent.type !== 'swimlane') {
+        const destination = archivedOwnerOf(state, { type: m.parent.type, id: m.parent.id })
+        rule(
+          destination === null,
+          'archived',
+          'that goal is archived — restore it before putting anything inside it',
+        )
+      }
 
       // Where does the new thing live? Only ask when it cannot be worked out.
       const currentParent: Parent =
@@ -505,7 +598,14 @@ export function reduce(state: State, m: Mutation): State {
           ...next,
           goals: {
             ...next.goals,
-            [m.newId]: { ...goal, notes: source.notes, deadline: source.deadline },
+            // createdAt comes too: this is the same thing at a different level, and the
+            // metadata exists so staleness can be surfaced kindly later (PRD §8.2).
+            [m.newId]: {
+              ...goal,
+              notes: source.notes,
+              deadline: source.deadline,
+              createdAt: source.createdAt,
+            },
           },
         }
       } else if (m.to === 'plan') {
@@ -521,7 +621,12 @@ export function reduce(state: State, m: Mutation): State {
           ...next,
           plans: {
             ...next.plans,
-            [m.newId]: { ...plan, notes: source.notes, deadline: source.deadline },
+            [m.newId]: {
+              ...plan,
+              notes: source.notes,
+              deadline: source.deadline,
+              createdAt: source.createdAt,
+            },
           },
         }
       } else {
@@ -538,7 +643,12 @@ export function reduce(state: State, m: Mutation): State {
           ...next,
           tasks: {
             ...next.tasks,
-            [m.newId]: { ...task, notes: source.notes, deadline: source.deadline },
+            [m.newId]: {
+              ...task,
+              notes: source.notes,
+              deadline: source.deadline,
+              createdAt: source.createdAt,
+            },
           },
         }
       }
@@ -566,7 +676,7 @@ export function reduce(state: State, m: Mutation): State {
       rule(text.length > 0, 'empty-capture', 'nothing to capture')
 
       if (m.destination.kind === 'pile') {
-        rule(!(m.id in state.pile), 'duplicate-id', `pile item ${m.id} already exists`)
+        rule(!idTaken(state, m.id), 'duplicate-id', `${m.id} already exists`)
         const parsed = parseTags(text)
         rule(parsed.text.length > 0, 'only-tags', 'that is only tags — say what the thing is')
         return {
@@ -649,9 +759,20 @@ export function reduce(state: State, m: Mutation): State {
       rule(
         !hasChildren(state, m.ref),
         'has-children',
-        'this still has things under it — send its parts, or archive it once that arrives',
+        'this still has things under it — send its parts, or archive it instead',
       )
-      rule(!(m.pileId in state.pile), 'duplicate-id', `pile item ${m.pileId} already exists`)
+      // The Pile holds ideas, and an idea has no notion of being done. Sending finished
+      // work there destroys `done`, `doneAt`, `size`, `deadline` and `notes` and puts it
+      // back in the backlog as something still to do — PRD §5.5: "done items belong to
+      // structure, not to the backlog". This rule lived in `Chip.svelte`, as a comment
+      // explaining why that component hid the button; `TaskRow` rendered the same button
+      // with no such guard. A destructive product rule belongs here, once.
+      rule(
+        !(m.ref.type === 'task' && state.tasks[m.ref.id]?.done === true),
+        'already-done',
+        'that is already done — the Pile is for ideas, and an idea cannot be done',
+      )
+      rule(!idTaken(state, m.pileId), 'duplicate-id', `${m.pileId} already exists`)
 
       const key = `${m.ref.type}s` as 'goals' | 'plans' | 'tasks'
       const entity = state[key][m.ref.id]!
@@ -691,7 +812,20 @@ export function reduce(state: State, m: Mutation): State {
     }
 
     case 'replaceAll':
-      return m.state
+      // Copied, not aliased. Returning `m.state` made the store hold the very object the
+      // mutation payload holds, so a caller that kept and edited its own payload would be
+      // editing the store — and it is the one case where the reducer did not produce a
+      // fresh document. The copy is shallow, which is enough: every other mutation
+      // replaces the maps it touches rather than editing them in place.
+      return {
+        ...m.state,
+        swimlanes: { ...m.state.swimlanes },
+        goals: { ...m.state.goals },
+        plans: { ...m.state.plans },
+        tasks: { ...m.state.tasks },
+        pile: { ...m.state.pile },
+        priorities: [...m.state.priorities],
+      }
 
     default: {
       // Exhaustiveness: a new mutation kind fails to compile until it is handled.

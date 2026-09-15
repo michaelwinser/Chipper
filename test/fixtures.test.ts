@@ -1,18 +1,20 @@
 /**
- * The mockups as golden fixtures (DESIGN.md §2.1).
+ * What the fixture file itself has to hold (DESIGN.md §2.1).
  *
- * These assert what the board must look like in each state. When `buildBoard` lands
- * at M2 it has to produce exactly these shapes, so the artboards, the PRD and the
- * code cannot drift apart quietly.
+ * The fixtures earn their keep in `board.test.ts`, where `buildBoard` must reproduce
+ * the artboards exactly. What is left here is the part only this file can check: that
+ * the hand-written fixtures are well-formed, and that nothing in any of them — drawn
+ * from state or not — expresses a shortfall.
+ *
+ * Seven tests were removed at M8. They asserted things like "a starred Plan makes its
+ * Goal contextual" against literals typed into `boards.ts` by hand, which proves what
+ * was typed and nothing about the code. Every one of those rules is now asserted in
+ * `board.test.ts` against real `buildBoard` output, where it can actually fail.
  */
 import { describe, expect, it } from 'vitest'
-import { boards, main, overloaded, sizeLensS, everything, starDepth } from '../src/fixtures/boards'
-import type { BoardModel, CardModel } from '../src/domain/board'
-import { layout } from '../src/domain/layout'
-
-const cardsOf = (b: BoardModel): CardModel[] => b.lanes.flatMap((l) => l.cards)
-const starredCount = (b: BoardModel): number =>
-  cardsOf(b).length + b.lanes.flatMap((l) => l.chips).length
+import { boards } from '../src/fixtures/boards'
+import { buildBoard } from '../src/domain/select/board'
+import { mainState } from '../src/fixtures/states'
 
 describe('every fixture', () => {
   it.each(Object.entries(boards))('%s has unique lane and card ids', (_name, board) => {
@@ -39,89 +41,52 @@ describe('every fixture', () => {
     scan(board, 'board')
     expect(offenders).toEqual([])
   })
-})
 
-describe('UC-3020/3021/3022 — the card is always the Goal, the star renders where you put it', () => {
-  it('a starred Goal shows in full ink with its own star', () => {
-    const card = starDepth.lanes[0]!.cards[0]!
-    expect(card.header.starred).toBe(true)
-    expect(card.header.contextual).toBe(false)
-    expect(card.rows.length).toBeGreaterThan(0)
+  it.each(Object.entries(boards))('%s never states the load in words', (_n, board) => {
+    expect(JSON.stringify(board)).not.toMatch(
+      /too many|too much|slow down|over.?committed|you should|falling/i,
+    )
   })
 
-  it('a starred Plan makes its Goal contextual and unstarred', () => {
-    const card = starDepth.lanes[0]!.cards[1]!
-    expect(card.header.starred).toBe(false)
-    expect(card.header.contextual).toBe(true)
-    const starredRows = card.rows.filter((r) => r.starred)
-    expect(starredRows).toHaveLength(1)
-    expect(starredRows[0]!.kind).toBe('plan')
-    expect(card.folded).not.toBeNull()
-  })
+  /**
+   * Every fixture card is a shape `buildBoard` could actually emit.
+   *
+   * There was a "carries every field of the model" test here. It compared each fixture's
+   * key set against `main`'s — which for `main` is `expect(x).toEqual(x)`, and for the
+   * rest is a job `tsc` already does, since every fixture is annotated `: BoardModel`.
+   * It also could not catch what it named: an OPTIONAL field added to the model and to
+   * the selector but to no fixture passes both the compiler and that comparison.
+   *
+   * This asks a question the compiler cannot: does anything actually produce a card like
+   * this? `overloaded` and `starDepth` draw shapes no single state produces, so they are
+   * checked field-by-field against the vocabulary a real card uses rather than against a
+   * sibling fixture.
+   */
+  it.each(Object.entries(boards))('%s holds cards a selector could produce', (_n, board) => {
+    const realCards = buildBoard(mainState(), {
+      focus: 'everything',
+      size: 'any',
+      expanded: ['g-invoicing'],
+    }).lanes.flatMap((l) => l.cards)
+    expect(realCards.length).toBeGreaterThan(0)
+    const realKeys = new Set(realCards.flatMap((c) => Object.keys(c)))
 
-  it('a starred Task inside a Plan keeps both levels of context and folds both', () => {
-    const card = starDepth.lanes[0]!.cards[3]!
-    expect(card.header.contextual).toBe(true)
-    expect(card.rows.map((r) => r.kind)).toEqual(['plan', 'task'])
-    expect(card.rows[1]!.indent).toBe(1)
-    expect(card.folded?.text).toMatch(/plan/)
-  })
-
-  it('UC-3023 — a loose starred Task is a chip, not a card', () => {
-    const stuff = main.lanes.find((l) => l.name === 'Stuff')!
-    expect(stuff.chips).toHaveLength(1)
-    expect(stuff.cards).toHaveLength(0)
-  })
-})
-
-describe('UC-3060 — overload is legible without being stated', () => {
-  it('every card degrades to title-only once too much is starred', () => {
-    expect(starredCount(overloaded)).toBeGreaterThan(layout.detailBudget)
-    expect(cardsOf(overloaded).every((c) => c.detail === 'title-only')).toBe(true)
-  })
-
-  it('the calm board stays under the budget and keeps its task lists', () => {
-    expect(starredCount(main)).toBeLessThanOrEqual(layout.detailBudget)
-    expect(cardsOf(main).some((c) => c.rows.length > 0)).toBe(true)
-  })
-
-  it('never states the overload — no copy anywhere counts what is starred', () => {
-    const text = JSON.stringify(overloaded)
-    expect(text).not.toMatch(/too many|too much|slow down|over.?committed|limit/i)
-  })
-})
-
-describe('UC-5015 — a Swimlane at rest', () => {
-  it('shows one quiet line rather than an empty state', () => {
-    const health = main.lanes.find((l) => l.name === 'Health')!
-    expect(health.cards).toHaveLength(0)
-    expect(health.resting?.summary).toBeTruthy()
-    expect(health.resting!.summary).not.toMatch(/empty|nothing to do|add|0 /i)
-  })
-})
-
-describe('UC-4030 — a lens that matches nothing', () => {
-  it('keeps the card and explains, rather than making it vanish', () => {
-    const family = sizeLensS.lanes.find((l) => l.name === 'Family')!
-    expect(family.cards).toHaveLength(1)
-    expect(family.cards[0]!.rows).toHaveLength(0)
-    expect(family.cards[0]!.empty?.text).toBeTruthy()
-  })
-
-  it('UC-4010 — every row surviving the S lens is an S', () => {
-    const rows = cardsOf(sizeLensS).flatMap((c) => c.rows)
-    const tasks = rows.filter((r) => r.kind === 'task')
-    expect(tasks.length).toBeGreaterThan(0)
-    expect(tasks.every((t) => t.size === 'S')).toBe(true)
-  })
-})
-
-describe('UC-4020 — widening to Everything', () => {
-  it('brings unstarred goals back as quiet cards rather than a new screen', () => {
-    expect(everything.lens.focus).toBe('everything')
-    const quiet = cardsOf(everything).filter((c) => c.emphasis === 'quiet')
-    expect(quiet.length).toBeGreaterThan(0)
-    expect(quiet.every((c) => !c.header.starred)).toBe(true)
-    expect(everything.lanes.every((l) => l.collapsed === null)).toBe(true)
+    for (const lane of board.lanes) {
+      for (const card of lane.cards) {
+        // No field the selector never emits, and none of the selector's fields missing.
+        expect({ id: card.goalId, keys: Object.keys(card).sort() }).toEqual({
+          id: card.goalId,
+          keys: [...realKeys].sort(),
+        })
+        expect(['active', 'quiet']).toContain(card.emphasis)
+        expect(['tasks', 'title-only']).toContain(card.detail)
+        expect(card.meta.done).toBeLessThanOrEqual(card.meta.total)
+        expect(card.meta.label).toBeTruthy()
+        // A title-only card carries no rows, which is what "title-only" means.
+        if (card.detail === 'title-only') expect(card.rows).toEqual([])
+        // And a card never offers itself as its own demotion target.
+        expect(card.demoteUnder.some((t) => t.goalId === card.goalId)).toBe(false)
+      }
+    }
   })
 })

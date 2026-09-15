@@ -15,11 +15,11 @@ Working name. Structure is SGPT; the app is Chipper.
 
 | Path | What it is |
 |---|---|
-| `PRD.md` | Product requirements. Principles, concepts, the one view, 30-odd numbered use cases (UC-####) written as `Pre / Do / Then / Never`. The `Never` clauses are the product principles made testable. |
-| `ROADMAP.md` | Eight milestones, each a vertical slice that ends in something usable and something testable. |
+| `PRD.md` | Product requirements. Principles, concepts, the one view, 54 numbered use cases (UC-####) written as `Pre / Do / Then / Never`. The `Never` clauses are the product principles made testable. |
+| `ROADMAP.md` | Nine milestones (M0–M8), each a vertical slice that ends in something usable and something testable, plus the review loop each one closes through. |
 | `BACKLOG.md` | Rough edges and open decisions noticed while using the app. Not milestone work. |
 | `DESIGN.md` | Technical design. Layering, data model, the store port and its conformance suite, the pure view model, toolchain and tests. |
-| `mocks/*.dc.html` | Twelve screen mockups, one artboard per file. Source, hand-editable. Two are superseded by what shipped; `PRD.md` §12 says which. |
+| `mocks/*.dc.html` | Twelve screen mockups, one artboard per file. Source, hand-editable. They record the design decisions rather than specifying the current app — one is superseded outright and two have diverged in a detail; `PRD.md` §12 says which, and which are still pinned as golden fixtures. |
 | `mocks/canvas.json` | Canvas layout: artboard positions, titles, annotations. |
 | `.claude/agents/` | Standing reviewer roles. Read-only agents that audit the docs and mocks along one dimension each: lifecycle, principles, traceability, edge states, contracts. |
 

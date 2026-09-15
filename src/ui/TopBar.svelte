@@ -25,8 +25,17 @@
   <span class="wordmark">Chipper</span>
 
   <nav>
+    <!--
+      Each guarded on its own callback, not both on `onexport`.
+      They were paired, and the blocked screen passes only `onimport` — so the one
+      control that recovers unreadable data without erasing it did not render, while
+      `Blocked.svelte` told the user to use it. Export is genuinely absent there:
+      there is nothing loaded to export.
+    -->
     {#if onexport}
       <button onclick={onexport}>Export</button>
+    {/if}
+    {#if onimport}
       <button onclick={onimport}>Import</button>
     {/if}
     {#if onnavigate}

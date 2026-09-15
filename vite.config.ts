@@ -24,5 +24,12 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.test.ts', 'src/**/*.test.ts'],
+    /**
+     * Component styles must reach the test document. With the default (`false`) Vitest
+     * stubs Svelte's style imports, so no <style> element exists — which made the
+     * regression test written for the invisible-card bug unable to fail, and meant every
+     * `textContent` assertion included text inside `display: none` subtrees.
+     */
+    css: true,
   },
 })

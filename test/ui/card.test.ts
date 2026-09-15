@@ -96,7 +96,7 @@ describe('the opened card is actually visible (the opacity:0 regression)', () =>
   })
 })
 
-describe('a card asks for things rather than deciding them', () => {
+describe('UC-3010 — a card asks for things rather than deciding them', () => {
   it('the star reports a toggle at the level it was drawn', async () => {
     const { actions, calls } = recordingActions()
     const r = show(render(GoalCard, { card: card('g-invoicing') }, { actions }))
@@ -179,5 +179,45 @@ describe('UC-5010 — finished work reads as progress', () => {
     r.button('Invoice March')?.click()
     await settle()
     expect(calls).toEqual(['setDone("t-march", false)'])
+  })
+})
+
+describe('long titles stay inside the thing that holds them', () => {
+  /**
+   * The card title was the one piece of user text in the app with no length treatment:
+   * `TaskRow` and `PlanRow` clip with an ellipsis, and `h3` did nothing. A 300-character
+   * unbroken title rendered in full inside a 296px card with `overflow: visible`, pushing
+   * out of the card and out of the wrapping row behind it. Nothing caps a title at any
+   * layer — `reduce.ts` rejects only an empty one, and `EditableText` sets no `maxlength`
+   * — so the layout has to survive whatever a person types.
+   */
+  const monster = 'Reticulating'.repeat(25)
+
+  it('a goal title that cannot wrap at a space still breaks', () => {
+    const c = { ...card('g-invoicing') }
+    c.header = { ...c.header, title: monster }
+    const r = show(render(GoalCard, { card: c }))
+    expect(r.text).toContain(monster)
+    expect(getComputedStyle(r.query('h3')!).overflowWrap).toBe('anywhere')
+  })
+
+  it('and the card itself declares a width rather than growing to fit', () => {
+    const c = { ...card('g-invoicing') }
+    c.header = { ...c.header, title: monster }
+    const r = show(render(GoalCard, { card: c }))
+    expect(getComputedStyle(r.query('.card')!).width).toBe('296px')
+  })
+
+  it('a demotion label breaks too — the picker is inside the same card', async () => {
+    const c = {
+      ...card('g-invoicing'),
+      demoteUnder: [{ goalId: 'g-x', label: `Work · ${monster}` }],
+    }
+    const r = show(render(GoalCard, { card: c }))
+    r.button('↓ plan')?.click()
+    await settle()
+    const pick = r.query('.pick')
+    expect(pick).not.toBeNull()
+    expect(getComputedStyle(pick!).overflowWrap).toBe('anywhere')
   })
 })

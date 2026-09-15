@@ -57,8 +57,10 @@ export async function createSession(deps: Deps, store: Store): Promise<Session> 
       return buildArchive(state)
     },
     get sweep() {
-      // Today is injected; the domain never reads a clock of its own.
-      return buildSweep(state, deps.now().slice(0, 10))
+      // Today is injected; the domain never reads a clock of its own. `deps.today()`,
+      // not `now().slice(0, 10)` — the latter is the UTC date, which is a different day
+      // from the user's for several hours out of every twenty-four.
+      return buildSweep(state, deps.today())
     },
     get page() {
       return page

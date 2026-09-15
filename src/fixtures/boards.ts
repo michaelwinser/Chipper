@@ -6,7 +6,15 @@
  * names the artboard and the use cases it stands for, so the mockups, the PRD and the
  * test suite cannot drift apart silently.
  */
-import type { BoardModel, CardModel, ChipModel, LaneModel, RowModel, Size } from '../domain/board'
+import type {
+  BoardModel,
+  CardModel,
+  ChipModel,
+  DemotionTarget,
+  LaneModel,
+  RowModel,
+  Size,
+} from '../domain/board'
 import { formatDeadline } from '../domain/format'
 
 const COLOR = {
@@ -78,14 +86,38 @@ function card(
       deadline: opts.deadline ? deadline(opts.deadline) : null,
     },
     expanded: opts.expanded ?? false,
+    holdsAnything: opts.holdsAnything ?? true,
     done: opts.done ?? null,
     guidance: opts.guidance ?? null,
     detail: opts.detail ?? 'tasks',
     rows: opts.rows ?? [],
     folded: opts.folded ?? null,
     empty: opts.empty ?? null,
+    // Every other live goal in `mainState()`, in lane then creation order, with this one
+    // filtered out (UC-2059). Written out once rather than per card: the list is the same
+    // for every card on these boards, and what is worth transcribing by hand is its
+    // CONTENT and ORDER — which lane comes first, how a label reads — not eleven copies
+    // of it. Boards built from other states pass their own.
+    demoteUnder: (opts.demoteUnder ?? MAIN_GOALS).filter((t) => t.goalId !== goalId),
   }
 }
+
+/**
+ * The goals of `mainState()`, as demotion labels.
+ *
+ * Transcribed by hand from the artboards' lane order — Work, Family, Health, Stuff — and
+ * the order goals were created within each. `buildBoard` has to reproduce this exactly,
+ * which is what makes `board.test.ts` a test of the selector rather than of itself.
+ */
+const MAIN_GOALS: DemotionTarget[] = [
+  { goalId: 'g-invoicing', label: 'Work · Catch up on invoicing' },
+  { goalId: 'g-chipper', label: 'Work · Ship Chipper v1' },
+  { goalId: 'g-hire', label: 'Work · Hire a second engineer' },
+  { goalId: 'g-docs', label: 'Work · Rewrite the onboarding docs' },
+  { goalId: 'g-trip', label: 'Family · Plan the December trip' },
+  { goalId: 'g-garage', label: 'Family · Sort out the garage' },
+  { goalId: 'g-runs', label: 'Health · Get back to three runs a week' },
+]
 
 function chip(
   taskId: string,
@@ -93,7 +125,14 @@ function chip(
   size: ChipModel['size'],
   emphasis: ChipModel['emphasis'] = 'active',
 ): ChipModel {
-  return { taskId, title, size, emphasis, starred: emphasis === 'active', done: false }
+  return {
+    taskId,
+    title,
+    size,
+    emphasis,
+    starred: emphasis === 'active',
+    done: false,
+  }
 }
 
 function lane(id: string, name: string, color: string, rest: Partial<LaneModel> = {}): LaneModel {

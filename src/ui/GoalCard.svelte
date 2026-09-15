@@ -10,6 +10,9 @@
   import { getBoardActions, isReadOnly } from './actions'
 
   let { card }: { card: CardModel } = $props()
+
+  /** Which goal to become a plan under. Local: it decides nothing until chosen. */
+  let demoting = $state(false)
   const actions = getBoardActions()
   const readOnly = isReadOnly()
   const parent = $derived({ type: 'goal' as const, id: card.goalId })
@@ -41,12 +44,14 @@
         <!-- Archive sits before delete everywhere it appears, so the eye reaches the
              reversible choice first (PRD §5.8). -->
         <button onclick={() => actions.archive(card.goalId)}>archive</button>
-        <button
-          title="It is a step towards something bigger"
-          onclick={() => actions.changeLevel({ type: 'goal', id: card.goalId }, 'plan')}
-          >↓ plan</button
-        >
-        {#if card.rows.length === 0}
+        {#if card.demoteUnder.length > 0}
+          <button
+            title="It is a step towards something bigger"
+            aria-label="Make this a plan under another goal"
+            onclick={() => (demoting = !demoting)}>↓ plan</button
+          >
+        {/if}
+        {#if !card.holdsAnything}
           <button onclick={() => actions.sendToPile({ type: 'goal', id: card.goalId })}>
             to the Pile
           </button>
@@ -95,6 +100,34 @@
     </div>
   {/if}
 
+  {#if demoting}
+    <!-- UC-2059 says "choosing the target Goal". The button used to call changeLevel with
+         no target at all, which the reducer refused on every single click. -->
+    <div class="demote">
+      <span class="eyebrow">Make it a plan under</span>
+      <!-- Scrolls rather than growing without limit: this lists every other goal in the
+           document, and at fifteen it was a wall of buttons growing out of one card. The
+           same budget `SetPriorities` gives its browse list. -->
+      <div class="picks">
+        {#each card.demoteUnder as target (target.goalId)}
+          <button
+            class="pick"
+            onclick={() => {
+              actions.changeLevel({ type: 'goal', id: card.goalId }, 'plan', {
+                type: 'goal',
+                id: target.goalId,
+              })
+              demoting = false
+            }}
+          >
+            {target.label}
+          </button>
+        {/each}
+      </div>
+      <button class="pick" onclick={() => (demoting = false)}>cancel</button>
+    </div>
+  {/if}
+
   {#if card.done}
     <!-- Finished work, shown as something achieved rather than as clutter (UC-5010). -->
     <div class="finished">
@@ -121,7 +154,14 @@
   {/if}
 
   {#if !readOnly}
-    <div class="adders" class:always={card.expanded || card.rows.length === 0}>
+    <!--
+      `!card.holdsAnything`, not `rows.length === 0`. Rows are empty for a title-only card
+      and for every quiet card too — the three false positives `holdsAnything` was added to
+      replace. With the artefact, crossing the detail budget made every card on the board
+      sprout permanently-visible adders at exactly the moment the board is meant to go
+      quiet, which is the degradation mechanic working in reverse.
+    -->
+    <div class="adders" class:always={card.expanded || !card.holdsAnything}>
       <AddInline
         label="task"
         placeholder="something you can just do"
@@ -138,6 +178,8 @@
 
 <style>
   .card {
+    /* Chosen around `layout.goalsPerLane`: three of these plus the add-inline fill a
+       comfortable row, and a fourth wraps. That wrap is UC-2080's whole mechanic. */
     width: 296px;
     background: var(--card);
     border: 1px solid var(--border);
@@ -176,6 +218,16 @@
     font-size: 16px;
     font-weight: 400;
     line-height: 1.25;
+    /*
+     * The card title is the one piece of user text in the app with no length treatment.
+     * `TaskRow` and `PlanRow` both clip with an ellipsis; this wrapped, and a long
+     * unbroken title — a URL, a German compound, a 300-character sentence — pushed
+     * straight out of a 296px card and out of the wrapping row behind it, because
+     * `overflow` is visible and the shell sets no `overflow-x`. Wrapping is right for a
+     * title (clipping a goal's name hides what it is); breaking inside a word is what
+     * keeps the wrap inside the card.
+     */
+    overflow-wrap: anywhere;
   }
   h3.contextual {
     color: var(--muted);
@@ -232,6 +284,40 @@
   }
   .folded {
     padding: 4px 0 0 23px;
+  }
+  .demote {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--divider);
+  }
+  .picks {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    width: 100%;
+    max-height: 168px;
+    overflow-y: auto;
+  }
+  .pick {
+    font: inherit;
+    font-size: 11px;
+    text-align: left;
+    color: var(--muted);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    padding: 3px 8px;
+    cursor: pointer;
+    /* A 300-character goal title must not push the picker out of the card. */
+    overflow-wrap: anywhere;
+  }
+  .pick:hover {
+    border-color: var(--line);
+    color: var(--ink);
   }
   .finished {
     display: flex;

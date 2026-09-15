@@ -45,6 +45,11 @@
       {#if removal.kind !== 'plan' && removal.kind !== 'swimlane'}
         <p class="final">It cannot be undone.</p>
       {/if}
+      {#if removal.cascadeCost}
+        <!-- The destructive option's own cost. Stating only the kind outcome above a red
+             button is how a dialog misleads while saying something technically true. -->
+        <p class="final">{removal.cascadeCost}</p>
+      {/if}
     </header>
 
     {#if removal.alternative}

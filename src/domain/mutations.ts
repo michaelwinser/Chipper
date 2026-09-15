@@ -14,6 +14,18 @@ import type { EntityRef, Parent, Ref, State } from './state'
 export type CaptureDestination =
   { kind: 'pile' } | { kind: 'swimlane'; swimlaneId: Id; as: 'task' | 'goal' }
 
+/**
+ * Where a deleted swimlane's contents go. A destination is required by the type, so a
+ * silent cascade is not expressible (UC-2014).
+ *
+ * `pileIds` is keyed BY TASK ID, not a positional list. Zipping a list over
+ * `Object.values` made the result depend on insertion order — the same logical state
+ * producing different documents, which is precisely what a server replaying this mutation
+ * must not do. Duplicate ids also silently destroyed tasks.
+ */
+export type DeleteSwimlaneDisposition =
+  { kind: 'move'; toSwimlaneId: Id } | { kind: 'archive'; pileIds: Record<Id, Id> }
+
 export type PromotionTarget =
   | { kind: 'goal'; id: Id; swimlaneId: Id }
   | { kind: 'plan'; id: Id; parent: Parent }
@@ -55,7 +67,7 @@ export type Mutation =
   | {
       kind: 'deleteSwimlane'
       id: Id
-      disposition: { kind: 'move'; toSwimlaneId: Id } | { kind: 'archive'; pileIds: Id[] }
+      disposition: DeleteSwimlaneDisposition
       at: IsoTime
     }
   /**

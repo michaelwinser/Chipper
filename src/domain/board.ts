@@ -75,6 +75,14 @@ export type CardModel = {
   /** Opened to show everything inside, including plans with nothing under them. */
   expanded: boolean
   /**
+   * Whether anything is under this goal at all — plans and finished tasks included.
+   *
+   * Stated, because the card used to infer it from `rows.length === 0`, which is a view
+   * artefact: rows are empty for a title-only card, a quiet card, and a goal whose tasks
+   * are all done. So "to the Pile" appeared on goals the reducer then refused.
+   */
+  holdsAnything: boolean
+  /**
    * Finished work, shown as progress rather than mixed in with what is left (UC-5010).
    * Separate from `rows` so it is never both struck through in the list AND counted
    * below it — and so it reads as something achieved, not as clutter.
@@ -92,6 +100,18 @@ export type CardModel = {
   folded: { text: string } | null
   /** Shown instead of rows when the size lens matches nothing here. */
   empty: { text: string } | null
+  /**
+   * Where THIS goal could go if it turned out to be a step rather than an outcome
+   * (UC-2059) — every other live goal, with itself already excluded.
+   *
+   * Per-card, not per-board. As a board field it was a list no consumer could use
+   * unedited: every card filtered itself out in Svelte, which is `changeLevel`'s cycle
+   * rule restated in a component, and untestable without mounting one. It also could not
+   * appear in the golden fixtures, because no artboard draws a picker's contents — so
+   * `board.test.ts` had to carve the field out of the comparison, and a field the
+   * artboards cannot describe is a field on the wrong model.
+   */
+  demoteUnder: DemotionTarget[]
 }
 
 /** A loose task with no goal above it: no card to draw, so it stays a chip. */
@@ -116,6 +136,15 @@ export type LaneModel = {
   /** A lane with nothing in play. It still exists; it just isn't asking. */
   resting: { summary: string } | null
 }
+
+/**
+ * Somewhere this goal could become a plan (UC-2059).
+ *
+ * `label` is assembled here, not in the component. Two goals can share a title, so the
+ * lane is part of the name — and the separator was being retyped in `GoalCard` and again
+ * in `board.test.ts`, which is a format living in two places and pinned in neither.
+ */
+export type DemotionTarget = { goalId: Id; label: string }
 
 export type BoardModel = {
   lanes: LaneModel[]
@@ -143,15 +172,56 @@ type GuiltField =
   | 'abandoned'
   | 'late'
   | 'behind'
+  // The arithmetic of shortfall, not only its vocabulary. `crowding` is the field this
+  // matters most for — its own doc says it must carry what is there and what the lane is
+  // built for, never the difference — and `{ goals, laidOutFor, over: 2 }` compiled
+  // cleanly under the old guard, because the guard only ever looked at top-level keys.
+  | 'over'
+  | 'excess'
+  | 'shortfall'
+  | 'deficit'
+  | 'remaining'
+  | 'outstanding'
+  | 'unfinished'
 
-type NoGuilt<T> = Extract<keyof T, GuiltField> extends never ? true : never
+/**
+ * Every shortfall-named key anywhere in `T` — nested objects, array members, and the
+ * non-null side of a union — collected as a union of the offending names.
+ *
+ * Accumulating offenders is the whole trick, and getting it wrong is silent. The first
+ * attempt mapped each property to `true | never` and checked the result was `true`; but
+ * `true | never` IS `true`, so every nested failure was absorbed and the guard passed on
+ * exactly the shapes it was extended to cover. Collecting names instead makes the empty
+ * case `never`, which is the only thing that cannot hide a member.
+ */
+export type Guilt<T> = Extract<keyof T, GuiltField> | { [K in keyof T]-?: GuiltIn<T[K]> }[keyof T]
+
+/** Descends through arrays and unions; stops at primitives, which cannot carry a key. */
+type GuiltIn<V> =
+  NonNullable<V> extends readonly (infer E)[]
+    ? GuiltIn<E>
+    : NonNullable<V> extends object
+      ? Guilt<NonNullable<V>>
+      : never
+
+/**
+ * `never` means nothing was found; anything else fails to satisfy `true`.
+ *
+ * Exported, because for a while it was not — and a guard that cannot be reused does not
+ * spread. §6.5 claimed the Archive got "the same §2.1 argument, applied to the place it
+ * matters most", and `select/sweep.ts` claimed in prose what its model "deliberately
+ * cannot express", while the mechanism behind both claims lived here as a private type.
+ * Each selector that makes the claim now asserts it.
+ */
+export type NoGuilt<T> = [Guilt<T>] extends [never] ? true : never
 
 export const _noGuiltFields: [
   NoGuilt<BoardModel>,
   NoGuilt<LaneModel>,
   NoGuilt<CardModel>,
-  NoGuilt<CardModel['meta']>,
   NoGuilt<ChipModel>,
   NoGuilt<TaskRowModel>,
   NoGuilt<PlanRowModel>,
-] = [true, true, true, true, true, true, true]
+  NoGuilt<DemotionTarget>,
+  NoGuilt<Lens>,
+] = [true, true, true, true, true, true, true, true]

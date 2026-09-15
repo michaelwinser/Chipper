@@ -1,3 +1,4 @@
+import type { NoGuilt } from '../board'
 /**
  * The Archive (PRD §5.8, UC-2131).
  *
@@ -9,8 +10,8 @@
  * Same argument as DESIGN.md §2.1, applied to the place it matters most: a person is
  * most likely to feel judged here, so there is nothing here that could judge them.
  */
-import type { Id, IsoTime } from '../primitives'
-import type { State } from '../state'
+import { compareText, type Id, type IsoTime } from '../primitives'
+import { orderedSwimlanes, type State } from '../state'
 
 export type ArchiveEntry = {
   goalId: Id
@@ -40,9 +41,7 @@ function archivedLabel(iso: string): string {
 export function buildArchive(state: State): ArchiveModel {
   const entries = Object.values(state.goals)
     .filter((goal) => goal.archived)
-    .sort(
-      (a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? '') || a.id.localeCompare(b.id),
-    )
+    .sort((a, b) => compareText(b.archivedAt ?? '', a.archivedAt ?? '') || compareText(a.id, b.id))
     .map((goal) => {
       const lane = state.swimlanes[goal.swimlaneId]
       return {
@@ -56,8 +55,22 @@ export function buildArchive(state: State): ArchiveModel {
 
   return {
     entries,
-    swimlanes: Object.values(state.swimlanes)
-      .sort((a, b) => a.order - b.order)
-      .map((lane) => ({ id: lane.id, name: lane.name, color: lane.color })),
+    // orderedSwimlanes, not a local sort: duplicate `order` values are not forbidden by
+    // any invariant, and a copy without its createdAt tiebreak falls back to record order.
+    swimlanes: orderedSwimlanes(state).map((lane) => ({
+      id: lane.id,
+      name: lane.name,
+      color: lane.color,
+    })),
   }
 }
+
+/* ------------------------------------------------------------------------- *
+ * Structural guarantee (DESIGN.md §2.1, §9.5)
+ *
+ * The Archive is where a shortfall tally would be most tempting and most wrong: UC-2130
+ * says an abandoned goal and a finished one produce an identical entry, with no marker
+ * distinguishing them. `DESIGN.md` §6.5 calls this "the same §2.1 argument, applied to the
+ * place it matters most" — this is the mechanism that argument names.
+ * ------------------------------------------------------------------------- */
+export const _noGuiltArchiveModel: [NoGuilt<ArchiveModel>, NoGuilt<ArchiveEntry>] = [true, true]

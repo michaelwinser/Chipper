@@ -8,11 +8,12 @@
 import { describe, expect, it } from 'vitest'
 import { reduce } from '../src/domain/reduce'
 import { RuleError } from '../src/domain/errors'
+import { buildRemoval } from '../src/domain/select/removal'
 import { checkInvariants } from '../src/domain/invariants'
 import { buildArchive } from '../src/domain/select/archive'
 import { buildBoard } from '../src/domain/select/board'
 import { childPlans, childTasks, descendants, type State } from '../src/domain/state'
-import type { Mutation } from '../src/domain/mutations'
+import type { DeleteSwimlaneDisposition, Mutation } from '../src/domain/mutations'
 import type { Lens } from '../src/domain/board'
 import { mainState } from '../src/fixtures/states'
 import { deepFreeze } from './support/freeze'
@@ -94,16 +95,55 @@ describe('UC-2106 / D11 — deleting a Plan keeps the work', () => {
 })
 
 describe('UC-2013 / UC-2014 — deleting a Swimlane needs a destination', () => {
-  it('cannot be expressed without one — a silent cascade is not in the type', () => {
-    // This is the guarantee: there is no shape of this mutation that means "just delete
-    // it and whatever is inside". The compiler enforces it; this records why.
-    const move: Mutation = {
-      kind: 'deleteSwimlane',
-      id: 'l-work',
-      disposition: { kind: 'move', toSwimlaneId: 'l-family' },
-      at: AT,
+  /**
+   * The guarantee is the type: there is no shape of this mutation meaning "delete it and
+   * whatever is inside".
+   *
+   * Two earlier attempts at asserting that were tautologies — reading `.kind` back off a
+   * literal, then counting the array literal's own length. Review checked the comment's
+   * claim that "a `cascade` variant added later would fail to compile here" and found it
+   * false: widening a union does not break a two-element array literal.
+   *
+   * This is the real exhaustiveness guard. `never` is only inhabited when every member
+   * has been handled, so a third variant makes the assignment at the bottom a compile
+   * error — and the `default` arm makes it one in the right place, naming the variant.
+   */
+  it('cannot be expressed without one — every disposition says where things go', () => {
+    const destinationOf = (d: DeleteSwimlaneDisposition): string => {
+      switch (d.kind) {
+        case 'move':
+          return d.toSwimlaneId
+        case 'archive':
+          return 'the archive, and the Pile for unfinished loose tasks'
+        default: {
+          const unhandled: never = d
+          throw new Error(`a disposition with no destination: ${JSON.stringify(unhandled)}`)
+        }
+      }
     }
-    expect(move.kind).toBe('deleteSwimlane')
+
+    expect(destinationOf({ kind: 'move', toSwimlaneId: 'l-family' })).toBe('l-family')
+    expect(destinationOf({ kind: 'archive', pileIds: {} })).toContain('archive')
+  })
+
+  it('refuses a disposition the reducer does not know, rather than cascading', () => {
+    // The type is the guarantee for callers that compile. This is the guarantee for the
+    // import path and a future server, which do not.
+    const before = mainState()
+    expect(Object.values(before.goals).some((g) => g.swimlaneId === 'l-work')).toBe(true)
+
+    expect(() =>
+      run(before, {
+        kind: 'deleteSwimlane',
+        id: 'l-work',
+        disposition: { kind: 'cascade' } as unknown as DeleteSwimlaneDisposition,
+        at: AT,
+      }),
+    ).toThrow()
+
+    // And the lane and its contents are still there — a refusal, not a partial delete.
+    expect(before).toEqual(mainState())
+    expect(before.swimlanes['l-work']).toBeDefined()
   })
 
   it('moves everything to another lane, keeping it all', () => {
@@ -129,7 +169,7 @@ describe('UC-2013 / UC-2014 — deleting a Swimlane needs a destination', () => 
     const state = run(mainState(), {
       kind: 'deleteSwimlane',
       id: 'l-work',
-      disposition: { kind: 'archive', pileIds: [] },
+      disposition: { kind: 'archive', pileIds: {} },
       at: AT,
     })
     expect(state.swimlanes['l-work']).toBeUndefined()
@@ -143,7 +183,10 @@ describe('UC-2013 / UC-2014 — deleting a Swimlane needs a destination', () => 
     const state = run(mainState(), {
       kind: 'deleteSwimlane',
       id: 'l-stuff',
-      disposition: { kind: 'archive', pileIds: ['pi-a', 'pi-b', 'pi-c'] },
+      disposition: {
+        kind: 'archive',
+        pileIds: { 't-gate': 'pi-a', 't-passport': 'pi-b', 't-domain': 'pi-c' },
+      },
       at: AT,
     })
     expect(Object.values(state.pile).map((p) => p.text)).toContain('Fix the back gate')
@@ -194,12 +237,28 @@ describe('UC-2130 — archiving a Goal', () => {
     // either carries is a date — nothing records which was finished.
     const finished = archive('g-invoicing').goals['g-invoicing']!
     const abandoned = archive('g-docs').goals['g-docs']!
-    const shape = (g: typeof finished) =>
-      Object.entries(g)
-        .filter(([k]) => k.startsWith('archiv'))
-        .map(([k, v]) => `${k}=${typeof v}`)
-        .sort()
-    expect(shape(finished)).toEqual(shape(abandoned))
+
+    // The WHOLE key set, not the archive-prefixed subset, and not `typeof`. The narrow
+    // version passed when `archiveGoal` was made to write `outcome: 'abandoned'` and
+    // `finishedCount` onto the goal — UC-2130's `Never` clause verbatim, invisible to the
+    // test named for it, because neither key starts with "archiv".
+    expect(Object.keys(finished).sort()).toEqual(Object.keys(abandoned).sort())
+    expect(Object.keys(finished).sort()).toEqual([
+      'archived',
+      'archivedAt',
+      'createdAt',
+      'deadline',
+      'id',
+      'notes',
+      'swimlaneId',
+      'title',
+      'updatedAt',
+    ])
+
+    // And every field but the goal's own identity holds the same KIND of value, with the
+    // two flags identical — one archived goal cannot be told from another by its shape.
+    expect(finished.archived).toBe(abandoned.archived)
+    expect(typeof finished.archivedAt).toBe(typeof abandoned.archivedAt)
   })
 
   it('archiving twice changes nothing', () => {
@@ -262,7 +321,7 @@ describe('UC-2132 — restoring', () => {
     const laneGone = run(archived(), {
       kind: 'deleteSwimlane',
       id: 'l-work',
-      disposition: { kind: 'archive', pileIds: [] },
+      disposition: { kind: 'archive', pileIds: {} },
       at: AT,
     })
     expect(
@@ -307,11 +366,115 @@ describe('deleting an archived Goal', () => {
     state = run(state, {
       kind: 'deleteSwimlane',
       id: 'l-work',
-      disposition: { kind: 'archive', pileIds: [] },
+      disposition: { kind: 'archive', pileIds: {} },
       at: AT,
     })
     const after = run(state, { kind: 'deleteGoal', id: 'g-invoicing', at: AT })
     expect(after.goals['g-invoicing']).toBeUndefined()
     expect(checkInvariants(after)).toEqual([])
+  })
+})
+
+describe('UC-2014 — deleting a lane keeps what it held, and says what it does not', () => {
+  /** A lane holding one finished loose task and two unfinished ones. */
+  const mixed = () => {
+    let state = reduce(mainState(), {
+      kind: 'createSwimlane',
+      id: 'l-odds',
+      name: 'Odds',
+      color: '#8a8f7a',
+      at: AT,
+    })
+    for (const [id, title] of [
+      ['t-a', 'Cancel the old domain'],
+      ['t-b', 'Renew the passport'],
+      ['t-c', 'Book the boiler service'],
+    ] as const) {
+      state = reduce(state, {
+        kind: 'createTask',
+        id,
+        parent: { type: 'swimlane', id: 'l-odds' },
+        title,
+        size: 'M',
+        at: AT,
+      })
+    }
+    return reduce(state, { kind: 'setTaskDone', id: 't-a', done: true, at: AT })
+  }
+
+  it('does not turn finished work into an open idea', () => {
+    // Every layer said "losing only their size": the code comment, the mutation type,
+    // DESIGN §5.3 and this test's own predecessor, which used three not-done tasks so
+    // the case never ran. The path routed done tasks through the Pile, dropping done,
+    // doneAt, notes and deadline and putting finished work back in the backlog.
+    const before = mixed()
+    const removal = buildRemoval(before, 'swimlane', 'l-odds')!
+    const state = run(before, {
+      kind: 'deleteSwimlane',
+      id: 'l-odds',
+      disposition: {
+        kind: 'archive',
+        pileIds: Object.fromEntries(removal.looseTaskIds.map((id, i) => [id, `pi-${i}`])),
+      },
+      at: AT,
+    })
+
+    const ideas = Object.values(state.pile).map((p) => p.text)
+    expect(ideas).toContain('Renew the passport')
+    expect(ideas).toContain('Book the boiler service')
+    expect(ideas).not.toContain('Cancel the old domain')
+    expect(checkInvariants(state)).toEqual([])
+  })
+
+  it('states that the finished one is destroyed, before it happens', () => {
+    const removal = buildRemoval(mixed(), 'swimlane', 'l-odds')!
+    expect(removal.alternative?.text).toMatch(/already finished/)
+    expect(removal.alternative?.text).not.toMatch(/Nothing is destroyed/)
+    // And it asks for new ids only for the ones that are actually going to the Pile.
+    expect(removal.looseTaskIds).toEqual(['t-b', 't-c'])
+  })
+
+  it('still says nothing is destroyed when nothing is finished', () => {
+    const state = reduce(mixed(), { kind: 'setTaskDone', id: 't-a', done: false, at: AT })
+    expect(buildRemoval(state, 'swimlane', 'l-odds')!.alternative?.text).toMatch(
+      /Nothing is destroyed/,
+    )
+  })
+
+  it('refuses when a task is given no new id, rather than dropping it', () => {
+    // The rules that exist because the pre-M8 positional zip destroyed tasks silently.
+    expect(() =>
+      run(mixed(), {
+        kind: 'deleteSwimlane',
+        id: 'l-odds',
+        disposition: { kind: 'archive', pileIds: {} },
+        at: AT,
+      }),
+    ).toThrow(/no new id/)
+  })
+
+  it('refuses when two tasks are given the same new id', () => {
+    expect(() =>
+      run(mixed(), {
+        kind: 'deleteSwimlane',
+        id: 'l-odds',
+        disposition: { kind: 'archive', pileIds: { 't-b': 'same', 't-c': 'same' } },
+        at: AT,
+      }),
+    ).toThrow(/same new id/)
+  })
+
+  it('gives the same answer however the record happens to be ordered', () => {
+    // `looseTaskIds` decided which task got which new id off `Object.values`, which is
+    // insertion history rather than state — so the same logical document produced
+    // different pile contents on two machines.
+    const forward = mixed()
+    const shuffled = {
+      ...forward,
+      tasks: Object.fromEntries(Object.entries(forward.tasks).reverse()),
+    }
+    expect(buildRemoval(shuffled, 'swimlane', 'l-odds')!.looseTaskIds).toEqual(
+      buildRemoval(forward, 'swimlane', 'l-odds')!.looseTaskIds,
+    )
   })
 })

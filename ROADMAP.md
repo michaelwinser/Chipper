@@ -240,9 +240,59 @@ schemas", invariants "asserted by the reducer", "the only place that knows the t
 `migrations/` directory, §5.3's stale vocabulary, the conformance suite's two overstated
 items, README's counts, and the artboards still annotated as current.
 
-**Closes:** UC-2080, and the `Never` clauses currently asserted nowhere (UC-2025, 4010,
-4040, 4050, and UC-2130's guard, which compares types rather than values).
+**Closes:** UC-2059, UC-6050 and UC-6060 — the last two written during the milestone,
+because the blocked-storage flow existed in code and in no use case — and the `Never`
+clauses asserted nowhere (UC-2025, 4010, 4040, 4050, and UC-2130's guard, which compared
+types rather than values).
+
+**Does not close UC-2080**, which this milestone listed as a closer. It was built, found to
+be backwards, and removed; what shipped is the removal plus a test pinning that a crowded
+lane's cards are never narrowed. The use case is satisfied by the layout as it already was.
+B-9 records what a real signal would take — a design question wanting real use, which is
+what D1 said in the first place.
 **Reviewers:** all ten, re-run until a pass produces nothing new.
+
+### What the review pass found
+
+The ten reviewers produced roughly 110 findings against work I had reported as finished —
+the same shape as the M7 pass, one milestone after adopting the loop meant to prevent it.
+Three are worth recording, because they are about how the work goes wrong rather than about
+what was wrong.
+
+**The tools built to catch bugs contained the bug they were built to catch.** The layering
+canary asserted `layerOf`, `ALLOWED` and `importsOf` separately instead of running the rule
+— so restoring the shell exemption I had just removed left all five tests green. The purity
+canary asked whether *some* rule matched each sample, which lets one rule cover for
+another's breakage. The recursive no-guilt guard mapped each field to `true | never` and
+checked the result was `true`, and `true | never` is `true`, so every nested failure was
+absorbed. Each looked like a guard.
+
+**Three tests written this milestone could not fail**, verified by mutation: two absence
+assertions passed against components whose entire templates had been deleted, because
+`''.split(' ')` gives `['']` and `''.includes('')` is true. A positive anchor before every
+absence claim is now the house rule.
+
+**The headline feature was backwards.** UC-2080 narrowed a crowded lane's cards from 296px
+to 244px, which made four crowded goals *fit* where four uncrowded ones wrapped — the
+signal bought back the room whose absence was supposed to be the signal. What shipped is
+the removal of that rule; see B-9.
+
+The most consequential finding was in none of that. `changeLevel` accepted a destination
+inside an archived goal, producing a document the loader refuses — so one ordinary click
+made the next session open on the blocked screen, whose only exit erased the data. The
+project's own fuzzer finds it — at seed 257 once the guard is removed, and at 893, 1020,
+1901 and 2084 through the plain mutation vocabulary. `invariants.test.ts` ran seeds 1 to 40.
+
+### Deferred to M9, deliberately
+
+The lifecycle review mapped every entity's create / rename / move / change-kind / finish /
+hide / destroy / restore and found real absences rather than regressions. They are features,
+and M8 is a corrective milestone: building them here would have buried the corrections in a
+much larger diff. Recorded as **B-10** (no reparenting mutation exists at all — the largest
+gap in the product), **B-11** (the ladder runs in three of its six directions), **B-12**
+(`notes` is promised to the user and unwritable), **B-13** (deadlines on plans and tasks),
+**B-14** (lane colour), **B-15** (the Pile's "Done" destroys without confirmation), **B-16**
+(view state never pruned) and **B-17** (an archived goal stranded when no lane exists).
 
 ---
 

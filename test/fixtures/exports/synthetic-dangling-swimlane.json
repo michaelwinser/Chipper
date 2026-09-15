@@ -1,0 +1,35 @@
+{
+  "app": "chipper",
+  "schemaVersion": 1,
+  "exportedAt": "2026-09-15T09:00:00.000Z",
+  "state": {
+    "schemaVersion": 1,
+    "swimlanes": {
+      "l-work": {
+        "id": "l-work",
+        "name": "Work",
+        "color": "#5A7391",
+        "order": 0,
+        "createdAt": "2026-09-01T09:00:00.000Z",
+        "updatedAt": "2026-09-01T09:00:00.000Z"
+      }
+    },
+    "goals": {
+      "g-orphan": {
+        "archived": true,
+        "archivedAt": "2026-09-15T09:00:00.000Z",
+        "createdAt": "2026-09-15T09:00:00.000Z",
+        "deadline": null,
+        "id": "g-orphan",
+        "notes": "",
+        "swimlaneId": "l-gone",
+        "title": "Finished with this area",
+        "updatedAt": "2026-09-15T09:00:00.000Z"
+      }
+    },
+    "plans": {},
+    "tasks": {},
+    "pile": {},
+    "priorities": []
+  }
+}

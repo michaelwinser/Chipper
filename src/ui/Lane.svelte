@@ -160,6 +160,26 @@
     align-items: flex-start;
     flex-wrap: wrap;
   }
+  /*
+   * UC-2080, D1 — the Rule of 3.
+   *
+   * Nothing here. That is the implementation, and it is deliberate.
+   *
+   * Cards are a fixed width and the lane wraps, so a fourth goal pushes the lane onto a
+   * second row and the page stops fitting on one screen — which is PRD §5.7's mechanic
+   * exactly, and `layout.goalsPerLane` is the number the widths were chosen around.
+   *
+   * M8 briefly added a `.crowded` rule narrowing cards from 296px to 244px and the gap
+   * from 14px to 8px. Review measured what that did: four crowded goals came to 1000px
+   * where four uncrowded ones came to 1226px, so at exactly the count where the layout
+   * would first show strain, the "crowding signal" removed the strain and bought back
+   * room for one or two more goals. The signal was also binary — a lane of four and a
+   * lane of nine rendered identically — and degrading the cards instead was no better:
+   * it contradicts `Main.dc.html`, which draws four goals in Work with full task lists.
+   *
+   * So the honest answer is that the layout already does this, and the job was to stop
+   * undoing it. See BACKLOG B-9 for what a real gradient would take.
+   */
   .reveal {
     font: inherit;
     border: none;

@@ -18,13 +18,19 @@ const run = (state: State, ...ms: Mutation[]): State =>
 
 /** Captures happen at different moments; the pile's only order is newest first. */
 let tick = 0
-const capture = (id: string, text: string): Mutation => ({
-  kind: 'capture',
-  id,
-  text,
-  destination: { kind: 'pile' },
-  at: `2026-09-14T10:00:${String(tick++).padStart(2, '0')}.000Z`,
-})
+const capture = (id: string, text: string): Mutation => {
+  // Minutes and seconds, not a padded counter: past 60 the counter alone produced
+  // `10:00:100`, which is neither a time nor in the order it looks like it is in.
+  const n = tick++
+  const stamp = `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`
+  return {
+    kind: 'capture',
+    id,
+    text,
+    destination: { kind: 'pile' },
+    at: `2026-09-14T10:${stamp}.000Z`,
+  }
+}
 
 describe('UC-1030 — hashtags', () => {
   it('lifts tags out so the item reads as a plain sentence', () => {

@@ -45,6 +45,36 @@ describe('schema', () => {
     }
   })
 
+  it('accepts the committed prior-version export, which the generator cannot replace', () => {
+    // The generator now reaches every collection, but this file is the only artefact in
+    // the repo that is frozen evidence rather than something regenerated on demand.
+    const fixture = JSON.parse(
+      readFileSync(resolve(import.meta.dirname, 'fixtures/exports/v1-m6.json'), 'utf8'),
+    )
+    const ok = validateEnvelope(fixture)
+    if (!ok) throw new Error(JSON.stringify(validateEnvelope.errors, null, 2))
+    expect(ok).toBe(true)
+  })
+
+  it('validates the parts the generator used to never reach', () => {
+    // pileItem and ref were validated against no runtime data at all before M8.
+    let sawPile = false
+    let sawPriority = false
+    let sawArchived = false
+    for (let seed = 1; seed <= 25; seed++) {
+      const generated = generateState(seed)
+      sawPile ||= Object.keys(generated.pile).length > 0
+      sawPriority ||= generated.priorities.length > 0
+      sawArchived ||= Object.values(generated.goals).some((g) => g.archived)
+      expect(validateState(generated)).toBe(true)
+    }
+    expect({ sawPile, sawPriority, sawArchived }).toEqual({
+      sawPile: true,
+      sawPriority: true,
+      sawArchived: true,
+    })
+  })
+
   it('accepts a real export envelope', () => {
     const envelope = JSON.parse(toEnvelope(generateState(7), '2026-09-14T10:00:00.000Z'))
     const ok = validateEnvelope(envelope)

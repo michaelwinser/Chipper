@@ -15,4 +15,10 @@ export const layout = {
   detailBudget: 6,
   /** Task rows shown inside one card before the rest fold into a line. */
   rowsPerCard: 3,
+  /**
+   * Goals one swimlane is laid out for (PRD §3, D1 — the Rule of 3). Not a limit: a
+   * fourth goal is created exactly like the third. The lane just stops having room to
+   * give each one, and that showing is the whole of the guidance (UC-2080).
+   */
+  goalsPerLane: 3,
 } as const

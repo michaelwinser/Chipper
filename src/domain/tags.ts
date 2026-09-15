@@ -7,6 +7,8 @@
  * ever captures — the overlay today, a share target or a server tomorrow.
  */
 
+import { compareText } from './primitives'
+
 const TAG = /(^|\s)#([\p{L}\p{N}][\p{L}\p{N}_-]*)/gu
 
 export type Captured = { text: string; tags: string[] }
@@ -29,5 +31,5 @@ export function tagCounts(items: { tags: string[] }[]): { tag: string; count: nu
   }
   return [...counts.entries()]
     .map(([tag, count]) => ({ tag, count }))
-    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+    .sort((a, b) => b.count - a.count || compareText(a.tag, b.tag))
 }

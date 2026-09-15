@@ -5,7 +5,6 @@
 import { describe, expect, it, afterEach } from 'vitest'
 import CaptureOverlay from '../../src/ui/CaptureOverlay.svelte'
 import Pile from '../../src/ui/Pile.svelte'
-import TopBar from '../../src/ui/TopBar.svelte'
 import { buildPile } from '../../src/domain/select/pile'
 import { reduce } from '../../src/domain/reduce'
 import { mainState } from '../../src/fixtures/states'
@@ -177,27 +176,10 @@ describe('the Pile', () => {
   })
 })
 
-describe('the top bar', () => {
-  it('never shows a count of the Pile — you go to it, it does not come to you', () => {
-    const state = reduce(mainState(), {
-      kind: 'capture',
-      id: 'p1',
-      text: 'an idea',
-      destination: { kind: 'pile' },
-      at: '2026-09-14T10:00:00.000Z',
-    })
-    const r = show(
-      render(TopBar, {
-        page: 'board' as const,
-        onnavigate: () => {},
-        oncapture: () => {},
-      }),
-    )
-    expect(buildPile(state).total).toBe(1)
-    expect(r.text).toContain('The Pile')
-    expect(r.text).not.toMatch(/The Pile\s*\d/)
-  })
-})
+// The top bar's "never shows a count of the Pile" assertion lives in `shell.test.ts`,
+// against the mounted app with nine items in the pile. A version of it lived here,
+// rendering a TopBar that is handed no numbers and then asserting no number appeared —
+// it named a use case and tested the pile selector's arithmetic.
 
 describe('editing an idea', () => {
   it('turns the text into a field and reports the change', async () => {

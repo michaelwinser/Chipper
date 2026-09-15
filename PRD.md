@@ -433,6 +433,12 @@ Do: import while data exists. Then: the app states clearly whether it replaces o
 **UC-6040 — Persistence across sessions**
 Do: make changes, close the browser, reopen. Then: state is intact.
 
+**UC-6050 — Saved data that cannot be read**
+Pre: the data in this browser is unreadable — a partly-completed write, a file from a newer version, or something else using the same storage. Do: open the app. Then: the board does not open, **nothing is written**, and the screen says what is wrong in words about *this browser* rather than about a file. Three ways out are offered, the destructive one last: download the raw data, show it on screen to copy, or **Import** a good export — which replaces the unreadable data without erasing it first. "Start fresh" erases permanently and takes two clicks. Never: an empty board that looks like a fresh install; a first edit that silently overwrites the only copy; a screen that still says nothing has been deleted after it has.
+
+**UC-6060 — A browser that will not allow storage**
+Pre: the browser refuses access to local storage — opening the app as a local file in Chrome, or a setting that blocks site data. Do: open the app. Then: it says so, says nothing can be saved, and does not open a board it could not keep. Never: an indefinite "Opening…"; a board that accepts work it will silently discard.
+
 ## 12. Mockups
 
 Twelve artboards under `mocks/`, one `.dc.html` file each, laid out by `canvas.json`.
@@ -443,17 +449,20 @@ Twelve artboards under `mocks/`, one `.dc.html` file each, laid out by `canvas.j
 | `Overloaded` | the same view with 13 starred — the load signal | UC-3060 |
 | `SizeLens` | size lens set to S, including a card with no match | UC-4010, 4030 |
 | `StarDepth` | all card shapes side by side, with the rule stated | UC-3020–3023 |
-| `Everything` | focus toggle widened | UC-4020, 5020 |
+| `Everything` | focus toggle widened — and the one artboard where UC-2080 is visible: the Work lane's four goals all draw at full width in a single wrapping row, which is the crowding | UC-4020, 2080 |
 | `Priorities` | the sweep, plus the "Coming up" deadline band | UC-3030, 3050 |
 | `GoalDetail` | **superseded at M4.** Drill-in became opening a card in place rather than a separate screen — a second surface would be the mode the view exists to avoid. The card carries what this artboard showed: full contents, finished work under its own heading, send-to-Pile. | UC-2030, 2040, 5010, 1060 |
 | `QuickCapture` | capture overlay | UC-1010, 1030 |
 | `BreakDown` | Task → Plan, and the three outs | UC-2050, 4050 |
-| `SizeLens` | the lens set to S, including a card it misses | UC-4010, 4030 |
 | `ThePile` | the global backlog | UC-1040, 1050, 1070 |
-| `Lifecycle` | creating a Goal in-lane, capture-as-goal, the ladder menu, lane rename | UC-2011, 2025, 2026, 2057–2059 |
-| `DeleteArchive` | delete with the archive alternative beside it, and the Archive view | UC-2105, 2106, 2130, 2131, 2132 |
+| `Lifecycle` | creating a Goal in-lane, capture-as-goal, the ladder menu, lane rename. The artboard draws **"Make it a plan under…"** — the picker, ellipsis and all. The code shipped a direct action instead, refused on every click from M5 until M8; the artboard was right the whole time. | UC-2011, 2012, 2025, 2026, 2057, 2059 |
+| `DeleteArchive` | delete with the archive alternative beside it, and the Archive view. **Diverged at M5:** each Archive entry now also carries a permanent delete, which the artboard does not draw — added on request, and still described by no use case (BACKLOG). | UC-2105, 2106, 2130, 2131, 2132 |
 
 The `.dc.html` files are the source and are hand-editable; `chipper-mockups.html` is generated from them and is not source.
+
+The artboards are a **record of the design decisions**, not a live specification. Where the shipped app has moved on, the row above says so and the app is what is correct — but the traffic has gone both ways: `Lifecycle` drew a control correctly that the code then implemented wrongly for five milestones. The three boards the code must reproduce exactly (`Main`, `Everything`, `SizeLens`) are pinned as golden fixtures in `src/fixtures/boards.ts` and asserted against `buildBoard` in `test/board.test.ts`.
+
+Surfaces added after the artboards, drawn nowhere: the blocked-storage screen and the storage-unavailable screen (UC-6050, UC-6060), the import dialog, and the notice strip.
 
 ## 13. Technical direction (summary — detail in the design doc)
 

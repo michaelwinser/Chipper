@@ -1,3 +1,4 @@
+import type { NoGuilt } from '../board'
 /**
  * Setting new priorities (UC-3030, UC-3040, UC-3050).
  *
@@ -11,9 +12,9 @@
  */
 import { daysUntil, distanceLabel } from '../days'
 import { formatDeadline } from '../format'
-import type { Id, IsoDate } from '../primitives'
+import { byCreation, compareText, type Id, type IsoDate } from '../primitives'
 import type { Goal, Plan, Ref, State, Task } from '../state'
-import { childTasks, goalsInSwimlane, orderedSwimlanes, progressOf } from '../state'
+import { childTasks, goalsInSwimlane, orderedSwimlanes, owningGoal, progressOf } from '../state'
 
 /** Something dated that has not happened yet, or has just gone by. */
 export type Upcoming = {
@@ -82,11 +83,14 @@ function swimlaneOfRef(state: State, ref: Ref): Goal | null {
   return null
 }
 
-function owner(state: State, plan: Plan): Goal | null {
+/** Cycle-safe: a cyclic document must render one broken goal, not hang the whole app. */
+function owner(state: State, plan: Plan, seen: Set<string> = new Set()): Goal | null {
+  if (seen.has(plan.id)) return null
+  seen.add(plan.id)
   if (plan.parent.type === 'goal') return state.goals[plan.parent.id] ?? null
   if (plan.parent.type === 'plan') {
     const up = state.plans[plan.parent.id]
-    return up ? owner(state, up) : null
+    return up ? owner(state, up, seen) : null
   }
   return null
 }
@@ -110,39 +114,57 @@ function upcoming(state: State, today: IsoDate, starred: Set<string>): Upcoming[
     if (goal.archived || goal.deadline === null) continue
     dated.push({ ref: { type: 'goal', id: goal.id }, title: goal.title, deadline: goal.deadline })
   }
+  // Archived is a property of the whole SUBTREE, not of the goal ref alone — the same
+  // half-implementation invariant 7 had. Filtering only goals here put plans and tasks
+  // inside archived goals into "Coming up", each with a star button; the reducer then
+  // refused the star, and `setPriorities` refuses the ENTIRE set on one bad ref, so a
+  // click on that button discarded every keep and drop the user had just made. It is
+  // also how documents that M8 cannot open came to exist in the first place.
   for (const plan of Object.values(state.plans)) {
     if (plan.deadline === null) continue
+    if (owningGoal(state, plan.parent)?.archived === true) continue
     dated.push({ ref: { type: 'plan', id: plan.id }, title: plan.title, deadline: plan.deadline })
   }
   for (const task of Object.values(state.tasks)) {
     if (task.deadline === null || task.done) continue
+    if (owningGoal(state, task.parent)?.archived === true) continue
     dated.push({ ref: { type: 'task', id: task.id }, title: task.title, deadline: task.deadline })
   }
 
-  return dated
-    .flatMap((item) => {
-      const days = daysUntil(today, item.deadline)
-      const date = formatDeadline(item.deadline)
-      if (days === null || date === null) return []
-      // Nothing finished is worth raising: a goal with nothing open is not "coming up".
-      const open = openUnder(state, item.ref)
-      if (item.ref.type !== 'task' && open === 0) return []
-      const goal = swimlaneOfRef(state, item.ref)
-      const lane = goal ? state.swimlanes[goal.swimlaneId] : null
-      return [
-        {
-          ref: item.ref,
-          title: item.title,
-          swimlane: lane ? { name: lane.name, color: lane.color } : null,
-          date,
-          distance: distanceLabel(days),
-          days,
-          left: leftLabel(open),
-          starred: starred.has(key(item.ref)),
-        },
-      ]
-    })
-    .sort((a, b) => a.days - b.days || a.title.localeCompare(b.title))
+  return (
+    dated
+      .flatMap((item) => {
+        const days = daysUntil(today, item.deadline)
+        const date = formatDeadline(item.deadline)
+        if (days === null || date === null) return []
+        // Nothing finished is worth raising: a goal with nothing open is not "coming up".
+        const open = openUnder(state, item.ref)
+        if (item.ref.type !== 'task' && open === 0) return []
+        const goal = swimlaneOfRef(state, item.ref)
+        const lane = goal ? state.swimlanes[goal.swimlaneId] : null
+        return [
+          {
+            ref: item.ref,
+            title: item.title,
+            swimlane: lane ? { name: lane.name, color: lane.color } : null,
+            date,
+            distance: distanceLabel(days),
+            days,
+            left: leftLabel(open),
+            starred: starred.has(key(item.ref)),
+          },
+        ]
+      })
+      // Total: without a tiebreak, two same-day items with the same title fall back to
+      // record order, which is insertion history rather than state. The tiebreak is
+      // `key(ref)`, not `ref.id` — this list mixes goals, plans and tasks, so an id alone
+      // is not an identity here, and the reducer only enforces id uniqueness WITHIN a
+      // collection (plus the pile). Two different things sharing an id is constructible.
+      .sort(
+        (a, b) =>
+          a.days - b.days || compareText(a.title, b.title) || compareText(key(a.ref), key(b.ref)),
+      )
+  )
 }
 
 export function buildSweep(state: State, today: IsoDate): SweepModel {
@@ -160,7 +182,7 @@ export function buildSweep(state: State, today: IsoDate): SweepModel {
 
   const browse: BrowseLane[] = orderedSwimlanes(state).map((lane) => {
     const items: BrowseLane['items'] = []
-    for (const goal of goalsInSwimlane(state, lane.id)) {
+    for (const goal of goalsInSwimlane(state, lane.id).sort(byCreation)) {
       const progress = progressOf(state, { type: 'goal', id: goal.id })
       const date = goal.deadline === null ? null : formatDeadline(goal.deadline)
       items.push({
@@ -174,7 +196,9 @@ export function buildSweep(state: State, today: IsoDate): SweepModel {
         indent: 0,
         starred: starred.has(`goal:${goal.id}`),
       })
-      for (const task of childTasks(state, { type: 'goal', id: goal.id }).filter((t) => !t.done)) {
+      for (const task of childTasks(state, { type: 'goal', id: goal.id })
+        .filter((t) => !t.done)
+        .sort(byCreation)) {
         items.push({
           ref: { type: 'task', id: task.id },
           title: task.title,
@@ -184,9 +208,9 @@ export function buildSweep(state: State, today: IsoDate): SweepModel {
         })
       }
     }
-    for (const task of childTasks(state, { type: 'swimlane', id: lane.id }).filter(
-      (t) => !t.done,
-    )) {
+    for (const task of childTasks(state, { type: 'swimlane', id: lane.id })
+      .filter((t) => !t.done)
+      .sort(byCreation)) {
       items.push({
         ref: { type: 'task', id: task.id },
         title: task.title,
@@ -202,3 +226,12 @@ export function buildSweep(state: State, today: IsoDate): SweepModel {
 }
 
 export type { Task, Goal, Plan }
+
+/* ------------------------------------------------------------------------- *
+ * Structural guarantee (DESIGN.md §2.1, §9.5)
+ *
+ * The file header says what this model "deliberately cannot express": how long anything
+ * has been starred, how many times something has been kept, how much of the last set was
+ * finished. That was prose. This is the compile error.
+ * ------------------------------------------------------------------------- */
+export const _noGuiltSweepModel: [NoGuilt<SweepModel>] = [true]

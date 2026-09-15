@@ -237,3 +237,70 @@ describe('UC-2090 — deadlines are optional everywhere', () => {
     expect(undated?.detail).toBe('goal · 2 of 11 done')
   })
 })
+
+describe('UC-3050 — "Coming up" never offers a star the reducer will refuse', () => {
+  /**
+   * The hole that wrote documents M8 cannot open.
+   *
+   * `upcoming()` filtered archived owners for GOALS only, so a dated plan or task inside
+   * an archived goal appeared in "Coming up" with a star button beside it. Clicking it
+   * wrote a document breaking invariant 7 — refused on the next load, which is the
+   * blocked screen. Once `setPriorities` was tightened to match the invariant, the same
+   * click instead threw away the user's entire sweep, because the mutation is atomic.
+   */
+  const withArchivedSubtree = () => {
+    let state = reduce(mainState(), {
+      kind: 'setDeadline',
+      ref: { type: 'plan', id: 'p-prototype' },
+      deadline: '2026-09-20',
+      at: AT,
+    })
+    state = reduce(state, {
+      kind: 'setDeadline',
+      ref: { type: 'task', id: 't-model' },
+      deadline: '2026-09-21',
+      at: AT,
+    })
+    return reduce(state, { kind: 'archiveGoal', id: 'g-chipper', at: AT })
+  }
+
+  it('drops a dated plan whose goal is archived', () => {
+    const before = buildSweep(
+      reduce(mainState(), {
+        kind: 'setDeadline',
+        ref: { type: 'plan', id: 'p-prototype' },
+        deadline: '2026-09-20',
+        at: AT,
+      }),
+      TODAY,
+    )
+    expect(before.comingUp.some((u) => u.ref.id === 'p-prototype')).toBe(true)
+
+    const after = buildSweep(withArchivedSubtree(), TODAY)
+    expect(after.comingUp.some((u) => u.ref.id === 'p-prototype')).toBe(false)
+  })
+
+  it('drops a dated task whose owning goal is archived', () => {
+    expect(
+      buildSweep(withArchivedSubtree(), TODAY).comingUp.some((u) => u.ref.id === 't-model'),
+    ).toBe(false)
+  })
+
+  it('every star it offers is one the reducer accepts — the whole point', () => {
+    const state = withArchivedSubtree()
+    const sweep = buildSweep(state, TODAY)
+    expect(sweep.comingUp.length).toBeGreaterThan(0)
+    // Offered as one set, exactly as `SetPriorities` submits it. `setPriorities` is
+    // atomic, so one bad ref discards the user's whole ritual.
+    expect(() =>
+      reduce(state, { kind: 'setPriorities', refs: sweep.comingUp.map((u) => u.ref), at: AT }),
+    ).not.toThrow()
+  })
+
+  it('and everything it offers to browse is acceptable too', () => {
+    const state = withArchivedSubtree()
+    const refs = buildSweep(state, TODAY).browse.flatMap((l) => l.items.map((i) => i.ref))
+    expect(refs.length).toBeGreaterThan(0)
+    expect(() => reduce(state, { kind: 'setPriorities', refs, at: AT })).not.toThrow()
+  })
+})
