@@ -74,6 +74,17 @@ export type CardModel = {
   }
   /** Opened to show everything inside, including plans with nothing under them. */
   expanded: boolean
+  /**
+   * Finished work, shown as progress rather than mixed in with what is left (UC-5010).
+   * Separate from `rows` so it is never both struck through in the list AND counted
+   * below it — and so it reads as something achieved, not as clutter.
+   */
+  done: { tasks: { id: Id; title: string }[] } | null
+  /**
+   * Gentle guidance, never a warning or a block (PRD D5). Nothing here ever prevents
+   * an action; it only says what the shape of the thing is starting to look like.
+   */
+  guidance: { text: string } | null
   /** Degrades to title-only when too much is starred to give anything room. */
   detail: 'tasks' | 'title-only'
   rows: RowModel[]

@@ -18,6 +18,7 @@
   import ReadOnlyBoard from './ui/ReadOnlyBoard.svelte'
   import Pile from './ui/Pile.svelte'
   import CaptureOverlay from './ui/CaptureOverlay.svelte'
+  import BreakDownDialog from './ui/BreakDownDialog.svelte'
   import TopBar from './ui/TopBar.svelte'
   import Notice from './ui/Notice.svelte'
   import { setBoardActions, setReadOnly, type BoardActions } from './ui/actions'
@@ -34,6 +35,7 @@
 
   let view = $state<View>('live')
   let capturing = $state(false)
+  let breaking = $state<{ taskId: string; title: string; starred: boolean } | null>(null)
   let session = $state<Session | null>(null)
   let commands = $state<ReturnType<typeof createCommands> | null>(null)
   let width = $state(0)
@@ -74,6 +76,12 @@
     toggleStar: (ref) => guard((c) => c.toggleStar(session!.state, ref)),
     setFocus: (focus) => {
       if (session) session.lens = { ...session.lens, focus }
+    },
+    setSizeLens: (size) => {
+      if (session) session.lens = { ...session.lens, size }
+    },
+    breakDown: (taskId, title, starred) => {
+      breaking = { taskId, title, starred }
     },
     toggleExpanded: (goalId) => {
       if (!session) return
@@ -150,7 +158,7 @@
 
 <div class="shell">
   <div class="picker">
-    <span class="tag">M1</span>
+    <span class="tag">M4</span>
     <button class:on={view === 'live'} onclick={() => (view = 'live')}>Live</button>
     <span class="rule"></span>
     <span class="tag">fixtures</span>
@@ -198,6 +206,27 @@
                     }),
               )}
             ondelete={(id) => guard((c) => c.deletePileItem(id))}
+          />
+        {/if}
+        {#if breaking}
+          <BreakDownDialog
+            title={breaking.title}
+            starred={breaking.starred}
+            onbreakdown={(pieces) => {
+              const task = breaking!.taskId
+              guard(async (c) => {
+                // The task becomes the plan, then the pieces become its first tasks.
+                const planId = await c.changeLevel({ type: 'task', id: task }, 'plan')
+                for (const piece of pieces) {
+                  await c.addTask({ type: 'plan', id: planId }, piece.title, piece.size)
+                }
+              })
+            }}
+            ondone={() => {
+              const task = breaking!.taskId
+              guard((c) => c.setDone(task, true))
+            }}
+            onclose={() => (breaking = null)}
           />
         {/if}
         {#if capturing}

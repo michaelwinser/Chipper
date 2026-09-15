@@ -40,6 +40,24 @@ export type Mutation =
    * anything with children rather than guessing what should happen to them.
    */
   | { kind: 'deleteEmpty'; ref: EntityRef; at: IsoTime }
+  /* --- the ladder (PRD §5.8) --- */
+  /**
+   * Nothing is stuck at the level you first gave it. A task that turns out to be too
+   * big climbs to a plan (UC-2050, the signature move); a plan that turns out to be the
+   * outcome itself climbs to a goal; a goal that turns out to be a step descends.
+   *
+   * One mechanism, not four. Title, notes, deadline, star and children all carry over —
+   * nothing is deleted and nothing is retyped. `parent` is only needed where it cannot
+   * be worked out from where the thing already is.
+   */
+  | {
+      kind: 'changeLevel'
+      ref: { type: 'goal' | 'plan' | 'task'; id: Id }
+      to: 'goal' | 'plan' | 'task'
+      newId: Id
+      parent?: Parent
+      at: IsoTime
+    }
   /* --- the pile --- */
   /**
    * Two seconds, no required fields (UC-1010). Destination is optional: with none, it
@@ -91,6 +109,7 @@ export const MUTATION_KINDS = [
   'addPriority',
   'removePriority',
   'deleteEmpty',
+  'changeLevel',
   'replaceAll',
 ] as const satisfies readonly MutationKind[]
 

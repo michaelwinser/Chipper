@@ -11,7 +11,7 @@
 import { rule } from './errors'
 import type { Mutation } from './mutations'
 import { parseTags } from './tags'
-import type { EntityRef, Parent, Ref, State } from './state'
+import type { EntityRef, Goal, Parent, Plan, Ref, State, Task } from './state'
 import { childPlans, childTasks } from './state'
 
 function parentExists(state: State, parent: Parent): boolean {
@@ -38,6 +38,14 @@ function exists(state: State, ref: EntityRef): boolean {
 }
 
 const sameRef = (a: Ref, b: Ref): boolean => a.type === b.type && a.id === b.id
+
+/** Walks up to the swimlane something ultimately sits in. */
+function swimlaneOf(state: State, parent: Parent): string | null {
+  if (parent.type === 'swimlane') return parent.id
+  if (parent.type === 'goal') return state.goals[parent.id]?.swimlaneId ?? null
+  const plan = state.plans[parent.id]
+  return plan ? swimlaneOf(state, plan.parent) : null
+}
 
 export function reduce(state: State, m: Mutation): State {
   switch (m.kind) {
@@ -259,6 +267,125 @@ export function reduce(state: State, m: Mutation): State {
         (ref) => !(ref.type === m.ref.type && ref.id === m.ref.id),
       )
       return { ...state, [key]: collection, priorities }
+    }
+
+    case 'changeLevel': {
+      rule(exists(state, m.ref), 'not-found', `no ${m.ref.type} ${m.ref.id}`)
+      rule(m.ref.type !== m.to, 'no-change', `that is already a ${m.to}`)
+      rule(!(m.newId in state[`${m.to}s` as const]), 'duplicate-id', `${m.newId} already exists`)
+
+      const fromKey = `${m.ref.type}s` as 'goals' | 'plans' | 'tasks'
+      const source = state[fromKey][m.ref.id]!
+      // Only a goal or a plan can hold anything, so only they can have children to move.
+      const here: Parent | null = m.ref.type === 'task' ? null : { type: m.ref.type, id: m.ref.id }
+      const kids = {
+        plans: here === null ? [] : childPlans(state, here),
+        tasks: here === null ? [] : childTasks(state, here),
+      }
+
+      // A task holds nothing, so anything with children cannot become one.
+      rule(
+        m.to !== 'task' || kids.plans.length + kids.tasks.length === 0,
+        'has-children',
+        'a task holds nothing — this still has things under it',
+      )
+
+      // Where does the new thing live? Only ask when it cannot be worked out.
+      const currentParent: Parent =
+        m.ref.type === 'goal'
+          ? { type: 'swimlane', id: (source as Goal).swimlaneId }
+          : (source as Plan | Task).parent
+      let parent: Parent
+      if (m.to === 'goal') {
+        // A goal lives in a swimlane: the one it is already inside.
+        const lane = m.parent?.type === 'swimlane' ? m.parent.id : swimlaneOf(state, currentParent)
+        rule(lane !== null, 'not-found', 'cannot tell which swimlane this belongs to')
+        parent = { type: 'swimlane', id: lane }
+      } else if (m.to === 'plan') {
+        // A plan belongs to a goal or another plan, never to a swimlane — so a loose
+        // task cannot become a plan, and is told to become a goal instead.
+        parent = m.parent ?? currentParent
+        rule(
+          parent.type !== 'swimlane',
+          'bad-parent',
+          'a plan belongs to a goal — make this a goal instead, or move it into one first',
+        )
+      } else {
+        parent = m.parent ?? currentParent
+      }
+
+      // Build the replacement, carrying everything the old one had.
+      const withoutSource = { ...state, [fromKey]: { ...state[fromKey] } }
+      delete (withoutSource[fromKey] as Record<string, unknown>)[m.ref.id]
+
+      let next: State
+      if (m.to === 'goal') {
+        next = reduce(withoutSource, {
+          kind: 'createGoal',
+          id: m.newId,
+          swimlaneId: parent.id,
+          title: source.title,
+          at: m.at,
+        })
+        const goal = next.goals[m.newId]!
+        next = {
+          ...next,
+          goals: {
+            ...next.goals,
+            [m.newId]: { ...goal, notes: source.notes, deadline: source.deadline },
+          },
+        }
+      } else if (m.to === 'plan') {
+        next = reduce(withoutSource, {
+          kind: 'createPlan',
+          id: m.newId,
+          parent,
+          title: source.title,
+          at: m.at,
+        })
+        const plan = next.plans[m.newId]!
+        next = {
+          ...next,
+          plans: {
+            ...next.plans,
+            [m.newId]: { ...plan, notes: source.notes, deadline: source.deadline },
+          },
+        }
+      } else {
+        next = reduce(withoutSource, {
+          kind: 'createTask',
+          id: m.newId,
+          parent,
+          title: source.title,
+          size: null,
+          at: m.at,
+        })
+        const task = next.tasks[m.newId]!
+        next = {
+          ...next,
+          tasks: {
+            ...next.tasks,
+            [m.newId]: { ...task, notes: source.notes, deadline: source.deadline },
+          },
+        }
+      }
+
+      // Children come with it. Nothing is orphaned and nothing is retyped. A task can
+      // never be a parent, and the rule above guaranteed there are none to move here.
+      const plans = { ...next.plans }
+      const tasks = { ...next.tasks }
+      if (m.to !== 'task') {
+        const moved: Parent = { type: m.to, id: m.newId }
+        for (const child of kids.plans) plans[child.id] = { ...plans[child.id]!, parent: moved }
+        for (const child of kids.tasks) tasks[child.id] = { ...tasks[child.id]!, parent: moved }
+      }
+
+      // The star moves with the thing, in the same place in the set.
+      const priorities = next.priorities.map((ref) =>
+        ref.type === m.ref.type && ref.id === m.ref.id ? ({ type: m.to, id: m.newId } as Ref) : ref,
+      )
+
+      return { ...next, plans, tasks, priorities }
     }
 
     case 'capture': {

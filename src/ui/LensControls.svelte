@@ -29,10 +29,16 @@
       </button>
     {/if}
   </div>
-  <!-- The size lens is M4. Shown greyed rather than hidden, so the shape is honest. -->
-  <div class="seg soon" title="Arrives in M4">
+  <!-- A filter over the same view, never a mode: nothing moves and nothing navigates. -->
+  <div class="seg">
     {#each sizes as s (s.value)}
-      <span class:on={lens.size === s.value}>{s.label}</span>
+      {#if readOnly}
+        <span class:on={lens.size === s.value}>{s.label}</span>
+      {:else}
+        <button class:on={lens.size === s.value} onclick={() => actions.setSizeLens(s.value)}>
+          {s.label}
+        </button>
+      {/if}
     {/each}
   </div>
 </div>
@@ -71,9 +77,6 @@
   }
   .seg button:disabled {
     cursor: default;
-  }
-  .seg.soon {
-    opacity: 0.45;
   }
   .seg span {
     font-size: 12px;

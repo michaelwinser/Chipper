@@ -78,6 +78,8 @@ function card(
       deadline: opts.deadline ? deadline(opts.deadline) : null,
     },
     expanded: opts.expanded ?? false,
+    done: opts.done ?? null,
+    guidance: opts.guidance ?? null,
     detail: opts.detail ?? 'tasks',
     rows: opts.rows ?? [],
     folded: opts.folded ?? null,

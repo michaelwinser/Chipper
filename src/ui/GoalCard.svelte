@@ -78,6 +78,31 @@
     </div>
   {/if}
 
+  {#if card.done}
+    <!-- Finished work, shown as something achieved rather than as clutter (UC-5010). -->
+    <div class="finished">
+      <span class="eyebrow">Done so far ({card.done.tasks.length})</span>
+      <div class="chips">
+        {#each card.done.tasks as task (task.id)}
+          {#if readOnly}
+            <span class="chip">{task.title}</span>
+          {:else}
+            <button
+              class="chip"
+              title="Put this back on the list"
+              onclick={() => actions.setDone(task.id, false)}>{task.title}</button
+            >
+          {/if}
+        {/each}
+      </div>
+    </div>
+  {/if}
+
+  {#if card.guidance}
+    <!-- Guidance, never a warning: it blocks nothing and scolds no one (PRD D5). -->
+    <p class="guidance">{card.guidance.text}</p>
+  {/if}
+
   {#if !readOnly}
     <div class="adders" class:always={card.expanded || card.rows.length === 0}>
       <AddInline
@@ -190,6 +215,49 @@
   }
   .folded {
     padding: 4px 0 0 23px;
+  }
+  .finished {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--divider);
+  }
+  .eyebrow {
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
+  }
+  .chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    font: inherit;
+    font-size: 11.5px;
+    color: var(--muted-2);
+    background: var(--badge);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    cursor: pointer;
+  }
+  button.chip:hover {
+    border-color: var(--line);
+    color: var(--ink);
+  }
+  .guidance {
+    margin: 4px 0 0;
+    padding: 8px 10px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--muted-2);
+    background: var(--headfill);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
   }
   .adders {
     display: flex;

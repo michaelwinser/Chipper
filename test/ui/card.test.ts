@@ -154,3 +154,30 @@ describe('a read-only board offers no controls at all', () => {
     expect(r.all('button')).toEqual([])
   })
 })
+
+describe('UC-5010 — finished work reads as progress', () => {
+  const opened = (goalId: string) =>
+    buildBoard(mainState(), { ...LENS, expanded: [goalId] })
+      .lanes.flatMap((l) => l.cards)
+      .find((c) => c.goalId === goalId)!
+
+  it('shows what was finished, under its own heading', () => {
+    const r = show(render(GoalCard, { card: opened('g-invoicing') }))
+    expect(r.text).toContain('Done so far (3)')
+    expect(r.text).toContain('Invoice March')
+    expect(r.text).toContain('3 of 7 done')
+  })
+
+  it('never says anything about what is left undone', () => {
+    const r = show(render(GoalCard, { card: opened('g-invoicing') }))
+    expect(r.text.toLowerCase()).not.toMatch(/remaining|outstanding|still|behind|only \d/)
+  })
+
+  it('a finished task can be put back, because finishing is not a trap', async () => {
+    const { actions, calls } = recordingActions()
+    const r = show(render(GoalCard, { card: opened('g-invoicing') }, { actions }))
+    r.button('Invoice March')?.click()
+    await settle()
+    expect(calls).toEqual(['setDone("t-march", false)'])
+  })
+})

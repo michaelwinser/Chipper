@@ -79,6 +79,11 @@
       {row.size ?? '–'}
     </button>
     <button
+      class="toobig"
+      aria-label="This one is too big"
+      onclick={() => actions.breakDown(row.id, row.title, row.starred)}>too big</button
+    >
+    <button
       class="pile"
       aria-label="Send to the Pile"
       onclick={() => actions.sendToPile({ type: 'task', id: row.id })}>↑</button
@@ -148,6 +153,24 @@
     border: none;
     font-family: inherit;
     cursor: pointer;
+  }
+  .toobig {
+    flex: none;
+    border: none;
+    background: none;
+    color: var(--faint-2);
+    font: inherit;
+    font-size: 10.5px;
+    padding: 0 2px;
+    cursor: pointer;
+    opacity: 0;
+    white-space: nowrap;
+  }
+  .row:hover .toobig {
+    opacity: 1;
+  }
+  .toobig:hover {
+    color: var(--muted);
   }
   .pile {
     flex: none;

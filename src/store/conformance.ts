@@ -112,6 +112,7 @@ export function sampleSequence(): Mutation[] {
     { kind: 'addPriority', ref: { type: 'goal', id: 'g1' }, at: AT },
     { kind: 'addPriority', ref: { type: 'task', id: 't2' }, at: AT },
     { kind: 'removePriority', ref: { type: 'task', id: 't2' }, at: AT },
+    { kind: 'changeLevel', ref: { type: 'task', id: 't2' }, to: 'plan', newId: 'p2', at: AT },
     { kind: 'setTaskDone', id: 't1', done: true, at: AT },
     { kind: 'deleteEmpty', ref: { type: 'task', id: 't3' }, at: AT },
     { kind: 'replaceAll', state: emptyState(), at: AT },

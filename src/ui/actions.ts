@@ -19,6 +19,8 @@ export type BoardActions = {
   toggleStar(ref: Ref): void
   setFocus(focus: 'priorities' | 'everything'): void
   toggleExpanded(goalId: string): void
+  breakDown(taskId: string, title: string, starred: boolean): void
+  setSizeLens(size: 'any' | 'S' | 'M' | 'L'): void
   closeAll(): void
   setSize(taskId: string, size: Size | null): void
   remove(ref: EntityRef): void
@@ -39,6 +41,8 @@ export const readOnlyActions: BoardActions = {
   toggleStar: () => {},
   setFocus: () => {},
   toggleExpanded: () => {},
+  breakDown: () => {},
+  setSizeLens: () => {},
   closeAll: () => {},
   setSize: () => {},
   remove: () => {},

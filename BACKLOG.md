@@ -26,6 +26,34 @@ than scrolls for anything sentence-length, and behaves identically wherever it a
 
 ---
 
+## B-6 · Pieces added in the break-down dialog cannot be edited
+
+**Noticed:** M4, breaking a task down. **Severity:** minor, but it is the signature move.
+
+Once a piece is added with Enter it becomes a static row. A typo can only be fixed by
+making the plan and then renaming the task on the board — which works, but means leaving
+the dialog knowing something in it is wrong.
+
+**Fixed would mean:** each piece is an `EditableText` row like every other title in the
+app, and can be removed. Relates to [B-1](#b-1--editing-is-a-short-single-line-box-everywhere):
+whatever the editing field becomes, this should use it.
+
+---
+
+## B-7 · The S/M/L control in the break-down dialog applies to the next piece, not a chosen one
+
+**Noticed:** M4. **Severity:** minor. **Related:** B-6, and probably fixed together.
+
+The size buttons set the size the *next* piece will get. That reads as though they apply
+to something already on screen, and there is no way to tell which. Compounded by B-6:
+having picked the wrong size you cannot go back and change it.
+
+**Fixed would mean:** each piece carries its own size control on its own row, and the
+composer row carries the size for the piece being typed. The current shared "pending size"
+disappears. Worth doing at the same time as B-6, since both are the same row redesign.
+
+---
+
 ## B-2 · UC-1070 says a completed Pile item is "recorded as done", and there is nowhere to record it
 
 **Noticed:** M3, implementing the Pile.

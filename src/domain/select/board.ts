@@ -10,7 +10,16 @@
  * is no room left for any of them. Nothing counts your priorities back at you — the
  * calm simply runs out, which is the only honest way to show an overload.
  */
-import type { BoardModel, CardModel, ChipModel, LaneModel, Lens, RowModel } from '../board'
+import type {
+  BoardModel,
+  CardModel,
+  ChipModel,
+  LaneModel,
+  Lens,
+  RowModel,
+  SizeLens,
+} from '../board'
+import type { Size } from '../primitives'
 import { formatDeadline } from '../format'
 import { layout } from '../layout'
 import type { Id } from '../primitives'
@@ -128,9 +137,17 @@ function fullContents(
 
 /** A goal opened to be looked inside. Stars are still shown, but nothing is hidden. */
 function expandedCard(state: State, goal: Goal, starredKeys: Set<string>): CardModel {
-  const rows = fullContents(state, { type: 'goal', id: goal.id }, 0).map((row) =>
+  const all = fullContents(state, { type: 'goal', id: goal.id }, 0).map((row) =>
     starredKeys.has(`${row.kind}:${row.id}`) ? { ...row, starred: true } : row,
   )
+  // Finished work is shown as progress below, not struck through among what is left.
+  const rows = all.filter((row) => row.kind !== 'task' || !row.done)
+  const finished = all.filter((row) => row.kind === 'task' && row.done)
+
+  // Three levels of plans is the soft limit (PRD D5). A fourth is allowed — it just
+  // says what the shape is turning into, and never blocks anything.
+  const deepest = rows.reduce((n, row) => (row.kind === 'plan' ? Math.max(n, row.indent) : n), -1)
+
   return {
     goalId: goal.id,
     emphasis: 'active',
@@ -143,9 +160,58 @@ function expandedCard(state: State, goal: Goal, starredKeys: Set<string>): CardM
     detail: 'tasks',
     expanded: true,
     rows,
+    done:
+      finished.length > 0 ? { tasks: finished.map((r) => ({ id: r.id, title: r.title })) } : null,
+    guidance:
+      deepest >= 3
+        ? {
+            text: 'This is four plans deep. It may be turning into a project — simplify it, or move part of it to the Pile.',
+          }
+        : null,
     folded: null,
-    empty: rows.length === 0 ? { text: 'Nothing in here yet — add a task or a plan' } : null,
+    empty:
+      rows.length === 0 && finished.length === 0
+        ? { text: 'Nothing in here yet — add a task or a plan' }
+        : null,
   }
+}
+
+/* --- the size lens (UC-4010, UC-4030) ---------------------------------------- *
+ * A filter over the view, never a mode: nothing moves, nothing navigates, and the
+ * cards stay exactly where they are. Tasks that do not fit the time you have simply
+ * fall out of them.
+ * --------------------------------------------------------------------------- */
+
+const SIZE_WORD: Record<Size, string> = { S: 'small', M: 'medium', L: 'large' }
+
+/** Unsized tasks appear under "any" only: an unsized thing fits no particular gap. */
+function fitsLens(row: RowModel, size: SizeLens): boolean {
+  if (size === 'any') return true
+  if (row.kind === 'plan') return true // a plan is context, not work
+  return row.size === size
+}
+
+/** Plan rows are context; once no task is left under one, it has nothing to frame. */
+function dropEmptyPlans(rows: RowModel[]): RowModel[] {
+  return rows.filter((row, i) => {
+    if (row.kind !== 'plan') return true
+    return rows.slice(i + 1).some((next) => next.indent > row.indent && next.kind === 'task')
+  })
+}
+
+/**
+ * Why this card has nothing in it under the current lens. Named rather than blank,
+ * because a card that empties without explanation reads as the app hiding things.
+ */
+function lensEmptyText(rows: RowModel[], size: SizeLens): string {
+  const word = size === 'any' ? 'nothing' : `nothing ${SIZE_WORD[size]}`
+  const starredTasks = rows.filter((r) => r.kind === 'task' && r.starred)
+  const only = starredTasks[0]
+  if (starredTasks.length === 1 && only !== undefined && only.kind === 'task') {
+    const its = only.size === null ? 'has no size' : `is an ${only.size}`
+    return `${word} here — your starred task ${its}`
+  }
+  return `${word} here`
 }
 
 /** A card for one Goal, given everything starred beneath it. */
@@ -154,6 +220,8 @@ function activeCard(
   goal: Goal,
   placements: Placement[],
   detailed: boolean,
+  size: SizeLens,
+  starred: Set<string>,
 ): CardModel {
   const goalStarred = placements.some((p) => p.ref.type === 'goal')
   const header = {
@@ -172,6 +240,8 @@ function activeCard(
       meta,
       detail: 'title-only',
       expanded: false,
+      done: null,
+      guidance: null,
       rows: [],
       folded: null,
       empty: null,
@@ -179,10 +249,20 @@ function activeCard(
   }
 
   const rows: RowModel[] = []
-  const seen = new Set<string>()
+  const seen = new Map<string, number>()
+  /**
+   * Rows can be reached twice — once because the goal is starred and again because the
+   * task itself is. The second visit must not be dropped: it carries the star, and a
+   * star that does not render is a click that appears to have done nothing.
+   */
   const push = (row: RowModel) => {
-    if (seen.has(row.id)) return
-    seen.add(row.id)
+    const at = seen.get(row.id)
+    if (at !== undefined) {
+      const existing = rows[at]!
+      if (row.starred && !existing.starred) rows[at] = { ...existing, starred: true }
+      return
+    }
+    seen.set(row.id, rows.length)
     rows.push(row)
   }
 
@@ -220,11 +300,15 @@ function activeCard(
           ? { kind: 'plan', id: placement.ref.id }
           : { kind: 'goal', id: goal.id }
       noteShown(scope, null)
-      for (const task of openTasksUnder(state, { type: scope.kind, id: scope.id }).slice(
-        0,
-        layout.rowsPerCard,
-      )) {
-        push(taskRow(task, indent, false))
+      // A task starred in its own right comes first: you asked for that one by name,
+      // so it should never be the thing that falls below the fold.
+      const open = openTasksUnder(state, { type: scope.kind, id: scope.id })
+      const ordered = [
+        ...open.filter((t) => starred.has(`task:${t.id}`)),
+        ...open.filter((t) => !starred.has(`task:${t.id}`)),
+      ]
+      for (const task of ordered.slice(0, layout.rowsPerCard)) {
+        push(taskRow(task, indent, starred.has(`task:${task.id}`)))
         noteShown(scope, task.id)
       }
     }
@@ -232,11 +316,18 @@ function activeCard(
 
   // What is hidden, described at the level it is hidden from.
   const parts: string[] = []
-  let hidden = 0
+  // Scopes overlap — a task inside a plan is also inside that plan's goal — so hidden
+  // work is counted once across their union. Adding the scopes up instead counts a task
+  // shown under one scope as missing from another, and the number drifts upward.
+  const openIds = new Set<Id>()
+  const shownIds = new Set<Id>()
   for (const { scope, shown } of scopes.values()) {
-    const open = openTasksUnder(state, { type: scope.kind, id: scope.id })
-    hidden += Math.max(0, open.length - open.filter((t) => shown.has(t.id)).length)
+    for (const task of openTasksUnder(state, { type: scope.kind, id: scope.id })) {
+      openIds.add(task.id)
+    }
+    for (const id of shown) shownIds.add(id)
   }
+  const hidden = [...openIds].filter((id) => !shownIds.has(id)).length
   if (hidden > 0) {
     const only = scopes.size === 1 ? [...scopes.values()][0]!.scope : null
     // "this plan" only reads correctly when there is exactly one plan to mean.
@@ -252,6 +343,12 @@ function activeCard(
     }
   }
 
+  // The lens is applied last, to rows the star rule already chose: it narrows what is
+  // in play, it never changes what is in play.
+  const unfiltered = rows
+  const filtered = dropEmptyPlans(rows.filter((row) => fitsLens(row, size)))
+  const lensed = size !== 'any'
+
   return {
     goalId: goal.id,
     emphasis: 'active',
@@ -259,14 +356,20 @@ function activeCard(
     meta,
     detail: 'tasks',
     expanded: false,
-    rows,
-    folded: parts.length > 0 ? { text: parts.join(' · ') } : null,
+    done: null,
+    guidance: null,
+    rows: filtered,
+    // While a lens is on, "3 more open" would describe things the lens hid rather than
+    // things there was no room for. Two different silences; only one is worth a line.
+    folded: !lensed && parts.length > 0 ? { text: parts.join(' · ') } : null,
     // Starred, but there is nothing to do in it — usually a goal waiting to be broken
     // down, which is the one thing worth saying out loud here.
     empty:
-      rows.length === 0
-        ? { text: 'Nothing to do in here yet — open it to add a task or a plan' }
-        : null,
+      filtered.length > 0
+        ? null
+        : unfiltered.length === 0
+          ? { text: 'Nothing to do in here yet — open it to add a task or a plan' }
+          : { text: lensEmptyText(unfiltered, size) },
   }
 }
 
@@ -279,6 +382,8 @@ function quietCard(state: State, goal: Goal): CardModel {
     meta: metaFor(state, goal),
     detail: 'title-only',
     expanded: false,
+    done: null,
+    guidance: null,
     rows: [],
     folded: null,
     empty: null,
@@ -329,13 +434,14 @@ export function buildBoard(state: State, lens: Lens): BoardModel {
       const placements = byGoal.get(goal.id)
       // An opened goal shows its contents whatever the focus — that is what opening is.
       if (lens.expanded.includes(goal.id)) cards.push(expandedCard(state, goal, starredKeys))
-      else if (placements) cards.push(activeCard(state, goal, placements, detailed))
+      else if (placements)
+        cards.push(activeCard(state, goal, placements, detailed, lens.size, starredKeys))
       else if (everything) cards.push(quietCard(state, goal))
     }
 
-    const chips = (everything ? loose : starredLooseHere).map((t) =>
-      chipFor(t, isStarred('task', t.id)),
-    )
+    const chips = (everything ? loose : starredLooseHere)
+      .filter((t) => lens.size === 'any' || t.size === lens.size)
+      .map((t) => chipFor(t, isStarred('task', t.id)))
 
     const hasAnything = goals.length > 0 || loose.length > 0
     const inPlay = cards.some((c) => c.emphasis === 'active') || starredLooseHere.length > 0

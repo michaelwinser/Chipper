@@ -48,6 +48,8 @@ export function recordingActions(): { actions: BoardActions; calls: string[] } {
       setFocus: note('setFocus'),
       toggleExpanded: note('toggleExpanded'),
       closeAll: note('closeAll'),
+      breakDown: note('breakDown'),
+      setSizeLens: note('setSizeLens'),
     },
   }
 }

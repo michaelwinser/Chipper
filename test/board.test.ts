@@ -8,7 +8,11 @@ import { describe, expect, it } from 'vitest'
 import { buildBoard } from '../src/domain/select/board'
 import type { Lens } from '../src/domain/board'
 import { layout } from '../src/domain/layout'
-import { everything as everythingFixture, main as mainFixture } from '../src/fixtures/boards'
+import {
+  everything as everythingFixture,
+  main as mainFixture,
+  sizeLensS as sizeLensFixture,
+} from '../src/fixtures/boards'
 import { mainState } from '../src/fixtures/states'
 import { reduce } from '../src/domain/reduce'
 import type { State } from '../src/domain/state'
@@ -25,6 +29,11 @@ describe('the artboards are reproducible from state', () => {
 
   it('matches the Everything artboard exactly, from the same state', () => {
     expect(buildBoard(deepFreeze(mainState()), EVERYTHING)).toEqual(everythingFixture)
+  })
+
+  it('matches the SizeLens artboard exactly, from the same state again', () => {
+    const lens: Lens = { focus: 'priorities', size: 'S', expanded: [] }
+    expect(buildBoard(deepFreeze(mainState()), lens)).toEqual(sizeLensFixture)
   })
 })
 
@@ -267,11 +276,15 @@ describe('UC-5020 — opening a goal to look inside it', () => {
     expect(card.folded).toBeNull()
   })
 
-  it('shows done work too — looking inside means looking at all of it', () => {
+  it('UC-5010 — shows finished work as progress, separately from what is left', () => {
     const card = opened('g-invoicing')
     const tasks = card.rows.filter((r) => r.kind === 'task')
-    expect(tasks.filter((t) => t.done).length).toBe(3)
-    expect(tasks).toHaveLength(7)
+    expect(card.meta.label).toBe('3 of 7 done')
+    expect(card.done?.tasks).toHaveLength(3)
+    expect(tasks).toHaveLength(4)
+    // Never both: struck through in the list AND counted underneath it.
+    const inRows = new Set(tasks.map((t) => t.id))
+    expect(card.done!.tasks.some((t) => inRows.has(t.id))).toBe(false)
   })
 
   it('opens a goal nothing is starred in, which is otherwise unreachable', () => {
@@ -360,5 +373,95 @@ describe('a goal with no tasks is not "0 of 0"', () => {
       .lanes.flatMap((l) => l.cards)
       .find((c) => c.goalId === 'g-empty')!
     expect(card.empty?.text).toMatch(/Nothing to do in here yet/)
+  })
+})
+
+describe('UC-2070 — nesting depth is guidance, never a block', () => {
+  /** Builds a chain of plans n deep under one goal. */
+  function nested(depth: number): State {
+    let state = reduce(mainState(), {
+      kind: 'createGoal',
+      id: 'g-deep',
+      swimlaneId: 'l-health',
+      title: 'Deep',
+      at: AT,
+    })
+    let parent: { type: 'goal' | 'plan'; id: string } = { type: 'goal', id: 'g-deep' }
+    for (let i = 0; i < depth; i++) {
+      state = reduce(state, {
+        kind: 'createPlan',
+        id: `p-deep-${i}`,
+        parent,
+        title: `Level ${i + 1}`,
+        at: AT,
+      })
+      parent = { type: 'plan', id: `p-deep-${i}` }
+    }
+    return state
+  }
+
+  const card = (state: State) =>
+    buildBoard(state, { ...EVERYTHING, expanded: ['g-deep'] })
+      .lanes.flatMap((l) => l.cards)
+      .find((c) => c.goalId === 'g-deep')!
+
+  it('says nothing at three levels', () => {
+    expect(card(nested(3)).guidance).toBeNull()
+  })
+
+  it('offers a way out at four, without refusing anything', () => {
+    const deep = card(nested(4))
+    expect(deep.guidance?.text).toMatch(/four plans deep/)
+    expect(deep.guidance!.text).toMatch(/simplify|Pile/)
+    // The fourth plan exists regardless — guidance never blocks.
+    expect(deep.rows.filter((r) => r.kind === 'plan')).toHaveLength(4)
+  })
+
+  it('never scolds about it', () => {
+    const text = card(nested(5)).guidance!.text
+    expect(text.toLowerCase()).not.toMatch(/too deep|should not|error|cannot|wrong|stop/)
+  })
+})
+
+describe('starring something inside a goal that is already starred', () => {
+  const invoicing = (state: State) =>
+    buildBoard(state, PRIORITIES)
+      .lanes.flatMap((l) => l.cards)
+      .find((c) => c.goalId === 'g-invoicing')!
+
+  const star = (taskId: string): State =>
+    reduce(mainState(), { kind: 'addPriority', ref: { type: 'task', id: taskId }, at: AT })
+
+  it('shows the star on the task — a click that renders nothing looks broken', () => {
+    // g-invoicing is starred, so t-vat is already on the card unstarred. Starring it
+    // reaches the same row a second time, and that visit carries the star.
+    expect(invoicing(mainState()).rows.find((r) => r.id === 't-vat')?.starred).toBe(false)
+    expect(invoicing(star('t-vat')).rows.find((r) => r.id === 't-vat')?.starred).toBe(true)
+  })
+
+  it('keeps the goal starred too — one star does not replace the other', () => {
+    const card = invoicing(star('t-vat'))
+    expect(card.header.starred).toBe(true)
+    expect(card.rows.filter((r) => r.starred)).toHaveLength(1)
+  })
+
+  it('brings a task that was below the fold into view, and the count follows', () => {
+    // t-june is the one folded away at rowsPerCard. Naming it should surface it.
+    const before = invoicing(mainState())
+    expect(before.rows.some((r) => r.id === 't-june')).toBe(false)
+    expect(before.folded?.text).toBe('1 more open')
+
+    const after = invoicing(star('t-june'))
+    const june = after.rows.find((r) => r.id === 't-june')
+    expect(june?.starred).toBe(true)
+    expect(after.rows[0]?.id).toBe('t-june')
+    // Still four open, three shown — the number stays honest as the contents change.
+    expect(after.rows.filter((r) => r.kind === 'task')).toHaveLength(3)
+    expect(after.folded?.text).toBe('1 more open')
+  })
+
+  it('never shows the same task twice', () => {
+    const rows = invoicing(star('t-vat')).rows
+    expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length)
   })
 })

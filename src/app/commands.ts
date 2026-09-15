@@ -20,6 +20,7 @@ export function nextLaneColor(state: State): string {
 
 export function createCommands(deps: Deps) {
   const { store, now, newId } = deps
+  const newId_ = newId
 
   return {
     async addSwimlane(name: string, color: string) {
@@ -48,6 +49,24 @@ export function createCommands(deps: Deps) {
       const id = newId()
       await store.apply({ kind: 'createTask', id, parent, title, size, at: now() })
       return id
+    },
+
+    /**
+     * The ladder (PRD §5.8). One call for every direction — the new id is made here so
+     * the mutation stays pure data, and the caller never has to invent one.
+     */
+    async changeLevel(
+      ref: { type: 'goal' | 'plan' | 'task'; id: string },
+      to: 'goal' | 'plan' | 'task',
+      parent?: Parent,
+    ) {
+      const newId = newId_()
+      await store.apply(
+        parent === undefined
+          ? { kind: 'changeLevel', ref, to, newId, at: now() }
+          : { kind: 'changeLevel', ref, to, newId, parent, at: now() },
+      )
+      return newId
     },
 
     async rename(ref: EntityRef, title: string) {

@@ -441,9 +441,10 @@ Twelve artboards under `mocks/`, one `.dc.html` file each, laid out by `canvas.j
 | `StarDepth` | all card shapes side by side, with the rule stated | UC-3020–3023 |
 | `Everything` | focus toggle widened | UC-4020, 5020 |
 | `Priorities` | the sweep, plus the "Coming up" deadline band | UC-3030, 3050 |
-| `GoalDetail` | drill-in, done work as progress, send to Pile | UC-2030, 2040, 5010, 1060 |
+| `GoalDetail` | **superseded at M4.** Drill-in became opening a card in place rather than a separate screen — a second surface would be the mode the view exists to avoid. The card carries what this artboard showed: full contents, finished work under its own heading, send-to-Pile. | UC-2030, 2040, 5010, 1060 |
 | `QuickCapture` | capture overlay | UC-1010, 1030 |
 | `BreakDown` | Task → Plan, and the three outs | UC-2050, 4050 |
+| `SizeLens` | the lens set to S, including a card it misses | UC-4010, 4030 |
 | `ThePile` | the global backlog | UC-1040, 1050, 1070 |
 | `Lifecycle` | creating a Goal in-lane, capture-as-goal, the ladder menu, lane rename | UC-2011, 2025, 2026, 2057–2059 |
 | `DeleteArchive` | delete with the archive alternative beside it, and the Archive view | UC-2105, 2106, 2130, 2131, 2132 |
