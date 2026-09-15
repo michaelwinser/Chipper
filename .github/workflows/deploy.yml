@@ -1,0 +1,58 @@
+# Build and publish to GitHub Pages.
+#
+# Repo settings must have Pages → Source set to "GitHub Actions" (done once, by hand).
+# Nothing is committed by this workflow: dist/ is built here and uploaded directly.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  # So a deploy can be re-run without an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer push supersedes one already queued, but never cancels
+# a run that is mid-deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Reads .nvmrc, which is kept in step with mise.toml and the Dockerfile.
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Exact lockfile, never a fresh resolve.
+      - run: npm ci --no-audit --no-fund
+
+      # The same gate that runs locally: types, svelte, formatting, tests. A deploy that
+      # skipped this would be a way to ship something `make check` would have refused.
+      - run: make check
+
+      - run: make build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

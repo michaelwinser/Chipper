@@ -2,14 +2,51 @@
 
 **Companion to:** `PRD.md` (what and why), `DESIGN.md` (how)
 
-Eight milestones. Each one is a **vertical slice**: it ends with something you can open in a browser and use, and something I can assert on in tests. There is deliberately no milestone that builds a layer without exposing it.
+Nine milestones. Each one is a **vertical slice**: it ends with something you can open in a browser and use, and something I can assert on in tests. There is deliberately no milestone that builds a layer without exposing it.
 
 Two sequencing rules drive the order:
 
 1. **Durability ships with the first real data.** Export/import is in M1, not at the end — M1 is the first point real goals go into `localStorage`, and `localStorage` is one cleared cache from gone.
 2. **You start using it for real at M2.** The layout constants (`DESIGN.md` §6.4) and whether the size lens earns its place (PRD D9) cannot be settled in the abstract. M2 is the earliest honest test of both.
 
-Every milestone is done when: it runs, `make check` is green, the listed use cases are covered by named tests, and the listed reviewers have been run and their findings resolved or recorded.
+## How a milestone closes
+
+Adopted after M7, when running all ten reviewers at once produced ~120 findings against a
+milestone I had already reported as finished. The loop exists because my own assessment of
+my work was demonstrably worth less than a structured review of it.
+
+A milestone is not done when the code works. It is done when:
+
+1. It runs and `make check` is green.
+2. The listed use cases are covered by tests that name them.
+3. **Every reviewer in `.claude/agents/` has been run** — not only the ones the milestone
+   lists. The M7 pass found that the most serious problems came from reviewers nobody
+   would have thought to point at that milestone.
+4. **Every finding is resolved**, where resolved means one of exactly three things:
+   - **Fixed.**
+   - **Recorded as a decision** — with the reasoning, in `BACKLOG.md` or the relevant doc,
+     so the next pass does not re-raise it and nobody later mistakes it for an oversight.
+   - **Escalated** — it needs a product decision, or it reveals that something larger is
+     wrong. Stop and ask rather than guessing; a reviewer finding that turns into a
+     unilateral redesign is worse than the finding.
+5. **The reviewers are re-run** after the fixes, until a pass produces nothing new. Fixes
+   introduce findings; one round is not a loop.
+6. Only then, commit.
+
+Two things that make this real rather than ceremonial. Findings about the *tests and
+guards* are fixed **before** findings about the code, because weak tools are what let the
+code findings through — the M7 pass traced a large share of ~120 findings back to five root
+causes, four of them in the tooling. And a reviewer's own definition is fair game: if a
+guard has a hole shaped like the bug it exists to prevent, closing the hole is the finding.
+
+**Running them.** `.claude/agents/*.md` is read at session start, so agents added mid-session
+are not available by name until the next one. In that case run each as a general-purpose
+agent told to read its own definition file and follow it — the definitions stay the single
+source of truth either way.
+
+---
+
+
 
 ---
 
@@ -114,7 +151,7 @@ Deadlines on Goals, Plans and Tasks. The Set-priorities sweep with per-item keep
 
 ---
 
-## M7 — Ship it
+## M7 — Ship it ✓ (with M8 owing)
 
 The migration chain with real prior-version fixtures. Import over existing state. First-run, empty, singular and enormous states. GitHub Pages deploy from CI.
 
@@ -124,6 +161,88 @@ The migration chain with real prior-version fixtures. Import over existing state
 
 **Closes:** UC-6030, plus the first-run and empty states that no use case currently names.
 **Reviewers:** `migration-reviewer`, `edge-state-reviewer`, `traceability-reviewer`, then `/code-review` over the whole diff.
+
+**What actually landed.** A real v1 export is committed at `test/fixtures/exports/v1-m6.json`
+and tested for import, round-trip and rendering — so a future schema change that breaks
+old files fails the build. The migration chain has no real steps yet, so the machinery is
+tested with a synthetic two-step chain: order, resuming from the file's own version, a
+missing step refused rather than skipped, and a step that wrecks the shape refused. The
+first genuine migration should not also be the first test of whether migrating works.
+
+`confirm()` on import became a real dialog that states both sides in counts and offers
+"Export what is here first" as the primary action. The M0 fixture gallery is gone from the
+shipped app; the fixtures remain as golden tests. Scale was measured, not assumed
+(`test/scale.test.ts`, and B-8 for the finding).
+
+---
+
+## M8 — Make the guarantees real
+
+The ten-reviewer pass at the close of M7 produced roughly 120 findings. They collapse into
+five root causes, four of which are in the tooling rather than the product — so this
+milestone fixes the tools first, then the bugs the tools then find.
+
+**What you can do:** nothing new. That is the point. This milestone buys back the right to
+believe the test suite, and closes the features that were reported as working and were not.
+
+### Order, which matters
+
+**1. The tools, before anything else.**
+
+- `test/support/generate.ts` emits 6 of 27 mutation kinds, and every generated state has an
+  empty pile and empty priorities. Four reviewers found this independently. It hollows out
+  the schema-drift guard (4 of 7 `$defs` never validated), the export round-trip property
+  test, and the invariant fuzzer. Extend it to the full vocabulary and assert generated
+  states are non-trivial.
+- `checkInvariants` never runs outside import, and 1 of its 8 codes is proven to fire.
+  Assert in development builds as `DESIGN.md` §3.3 already claims, and give every code a
+  hand-built broken state that proves it fires.
+- Component tests run with **zero CSS** (`test.css` defaults off), so the visibility
+  regression test written for the invisible-card bug cannot fail, and `textContent`
+  includes `display:none` subtrees. Turn CSS on and re-verify every UI assertion.
+- `App.svelte` has no tests and is where the wiring bugs live.
+- Close the guard holes: `localeCompare` (the same hidden input `toLocaleString` is banned
+  for), `Date.parse` / `Date.UTC` / `Intl.` / `performance.now`, the architecture test's
+  shell exemption and blindness to dynamic imports, and `base: './'` — on which the
+  `file://` promise actually rests, and which nothing tests.
+- Delete or rewrite the tests that cannot fail: the `opacity:0` check, two `TopBar` tests,
+  `expect(move.kind).toBe(...)`, `not.toContain('>Keep<')`, the cross-adapter conformance
+  test that compares an adapter with itself, the seven `fixtures.test.ts` tests that assert
+  on hand-written literals, and `scale.test.ts`'s pile and archive measurements at 0×.
+- Replace `scale.test.ts`'s wall-clock budgets, which have ~2× headroom on this machine and
+  gate the Pages deploy from a 2-core CI runner.
+
+**2. The data-loss and corruption set.**
+
+- `changeLevel` accepts a parent inside its own subtree, builds a cycle, and makes delete
+  throw forever. No cycle guard in `descendants`, `owningGoal` or `swimlaneOf`.
+- Unreadable stored data returns `emptyState()` and the first click overwrites it; the
+  warning cannot fire because `onLoadError` runs before `session` exists; and a plausible
+  corrupt document throws out of `createLocalStore` rather than being refused.
+- `deleteSwimlane`/archive zips `pileIds` positionally over unsorted `Object.values`, so
+  duplicate ids destroy tasks and the same logical state gives different results.
+- `deleteSwimlane`/move reassigns archived goals — the one rewrite PRD §10 forbids.
+- The plan cascade delete states the promote cost and then destroys the subtree.
+- `changeLevel` discards `done`/`doneAt`, resets `createdAt`, and silently un-archives.
+- Invariant 7 is half-implemented, and starring from "Coming up" reaches the missing half.
+
+**3. Features reported as working that are not.**
+
+- Deleting an empty swimlane (App dispatch falls through to `deleteTask`).
+- "↓ plan" on every goal card — errors on every click; UC-2059 has no route.
+- "to the Pile" gated on a view artefact, so it appears where it cannot work.
+- Loose tasks: no rename, no delete, no exit, no size.
+- **UC-2080** — the Rule of 3 — designed, drawn, decided (D1), and never built. The only
+  use case absent from every milestone.
+
+**4. The documents.** Delete false claims rather than softening them: types "generated from
+schemas", invariants "asserted by the reducer", "the only place that knows the time", the
+`migrations/` directory, §5.3's stale vocabulary, the conformance suite's two overstated
+items, README's counts, and the artboards still annotated as current.
+
+**Closes:** UC-2080, and the `Never` clauses currently asserted nowhere (UC-2025, 4010,
+4040, 4050, and UC-2130's guard, which compares types rather than values).
+**Reviewers:** all ten, re-run until a pass produces nothing new.
 
 ---
 

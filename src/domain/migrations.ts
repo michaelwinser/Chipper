@@ -20,7 +20,7 @@ export type RawEnvelope = {
 
 export type MigrateResult = { ok: true; state: State } | { ok: false; error: string }
 
-type Migration = {
+export type Migration = {
   /** Applied to an envelope at this version, producing `from + 1`. */
   from: number
   describe: string
@@ -47,15 +47,28 @@ function looksLikeState(value: unknown): value is State {
 }
 
 export function migrate(envelope: RawEnvelope): MigrateResult {
+  return migrateWith(envelope, MIGRATIONS, SCHEMA_VERSION)
+}
+
+/**
+ * The chain, with its steps passed in. Split out so the machinery can be tested with a
+ * real sequence of migrations before there is one — the first genuine migration should
+ * not also be the first test of whether migrating works at all.
+ */
+export function migrateWith(
+  envelope: RawEnvelope,
+  migrations: Migration[],
+  target: number,
+): MigrateResult {
   let version = envelope.schemaVersion
   let state = envelope.state
 
-  while (version < SCHEMA_VERSION) {
-    const step = MIGRATIONS.find((m) => m.from === version)
+  while (version < target) {
+    const step = migrations.find((m) => m.from === version)
     if (!step) {
       return {
         ok: false,
-        error: `No way to upgrade this export from format ${version} to ${SCHEMA_VERSION}.`,
+        error: `No way to upgrade this export from format ${version} to ${target}.`,
       }
     }
     state = step.up(state)

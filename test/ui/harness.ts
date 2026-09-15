@@ -72,8 +72,13 @@ export function render<P extends Record<string, unknown>>(
 
   return {
     el: target,
+    /**
+     * Visible text with runs of whitespace collapsed. Templates wrap sentences across
+     * lines for readability, which puts newlines inside phrases a person reads as one —
+     * asserting on the raw textContent tests the formatter, not the copy.
+     */
     get text() {
-      return target.textContent ?? ''
+      return (target.textContent ?? '').replace(/\s+/g, ' ').trim()
     },
     query: <T extends Element = HTMLElement>(selector: string) =>
       target.querySelector(selector) as T | null,

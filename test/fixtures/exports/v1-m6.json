@@ -1,0 +1,940 @@
+{
+  "app": "chipper",
+  "exportedAt": "2026-09-15T09:00:00.000Z",
+  "schemaVersion": 1,
+  "state": {
+    "goals": {
+      "g-chipper": {
+        "archived": false,
+        "archivedAt": null,
+        "createdAt": "2026-09-01T00:00:17.000Z",
+        "deadline": null,
+        "id": "g-chipper",
+        "notes": "",
+        "swimlaneId": "l-work",
+        "title": "Ship Chipper v1",
+        "updatedAt": "2026-09-01T00:00:17.000Z"
+      },
+      "g-docs": {
+        "archived": true,
+        "archivedAt": "2026-09-15T09:00:00.000Z",
+        "createdAt": "2026-09-01T00:00:36.000Z",
+        "deadline": null,
+        "id": "g-docs",
+        "notes": "",
+        "swimlaneId": "l-work",
+        "title": "Rewrite the onboarding docs",
+        "updatedAt": "2026-09-15T09:00:00.000Z"
+      },
+      "g-garage": {
+        "archived": false,
+        "archivedAt": null,
+        "createdAt": "2026-09-01T00:00:40.000Z",
+        "deadline": null,
+        "id": "g-garage",
+        "notes": "",
+        "swimlaneId": "l-family",
+        "title": "Sort out the garage",
+        "updatedAt": "2026-09-01T00:00:40.000Z"
+      },
+      "g-hire": {
+        "archived": false,
+        "archivedAt": null,
+        "createdAt": "2026-09-01T00:00:34.000Z",
+        "deadline": "2026-11-30",
+        "id": "g-hire",
+        "notes": "",
+        "swimlaneId": "l-work",
+        "title": "Hire a second engineer",
+        "updatedAt": "2026-09-01T00:00:35.000Z"
+      },
+      "g-invoicing": {
+        "archived": false,
+        "archivedAt": null,
+        "createdAt": "2026-09-01T00:00:05.000Z",
+        "deadline": null,
+        "id": "g-invoicing",
+        "notes": "",
+        "swimlaneId": "l-work",
+        "title": "Catch up on invoicing",
+        "updatedAt": "2026-09-01T00:00:05.000Z"
+      },
+      "g-runs": {
+        "archived": false,
+        "archivedAt": null,
+        "createdAt": "2026-09-01T00:00:41.000Z",
+        "deadline": null,
+        "id": "g-runs",
+        "notes": "",
+        "swimlaneId": "l-health",
+        "title": "Get back to three runs a week",
+        "updatedAt": "2026-09-01T00:00:41.000Z"
+      },
+      "g-trip": {
+        "archived": false,
+        "archivedAt": null,
+        "createdAt": "2026-09-01T00:00:37.000Z",
+        "deadline": "2026-12-01",
+        "id": "g-trip",
+        "notes": "",
+        "swimlaneId": "l-family",
+        "title": "Plan the December trip",
+        "updatedAt": "2026-09-01T00:00:38.000Z"
+      }
+    },
+    "pile": {
+      "pi-1": {
+        "createdAt": "2026-09-15T09:00:00.000Z",
+        "id": "pi-1",
+        "tags": ["house"],
+        "text": "replace the gutters"
+      },
+      "pi-2": {
+        "createdAt": "2026-09-15T09:00:00.000Z",
+        "id": "pi-2",
+        "tags": [],
+        "text": "look into a new dentist"
+      }
+    },
+    "plans": {
+      "p-invoice": {
+        "createdAt": "2026-09-01T00:00:06.000Z",
+        "deadline": null,
+        "id": "p-invoice",
+        "notes": "",
+        "parent": {
+          "id": "g-invoicing",
+          "type": "goal"
+        },
+        "title": "Invoice one past month per week",
+        "updatedAt": "2026-09-01T00:00:06.000Z"
+      },
+      "p-prototype": {
+        "createdAt": "2026-09-01T00:00:18.000Z",
+        "deadline": null,
+        "id": "p-prototype",
+        "notes": "",
+        "parent": {
+          "id": "g-chipper",
+          "type": "goal"
+        },
+        "title": "Build the prototype",
+        "updatedAt": "2026-09-01T00:00:18.000Z"
+      },
+      "p-ship": {
+        "createdAt": "2026-09-01T00:00:26.000Z",
+        "deadline": null,
+        "id": "p-ship",
+        "notes": "",
+        "parent": {
+          "id": "g-chipper",
+          "type": "goal"
+        },
+        "title": "Ship it",
+        "updatedAt": "2026-09-01T00:00:26.000Z"
+      },
+      "p-tell": {
+        "createdAt": "2026-09-01T00:00:27.000Z",
+        "deadline": null,
+        "id": "p-tell",
+        "notes": "",
+        "parent": {
+          "id": "g-chipper",
+          "type": "goal"
+        },
+        "title": "Tell people",
+        "updatedAt": "2026-09-01T00:00:27.000Z"
+      }
+    },
+    "priorities": [
+      {
+        "id": "g-invoicing",
+        "type": "goal"
+      },
+      {
+        "id": "p-prototype",
+        "type": "plan"
+      },
+      {
+        "id": "t-flights",
+        "type": "task"
+      },
+      {
+        "id": "t-gate",
+        "type": "task"
+      }
+    ],
+    "schemaVersion": 1,
+    "swimlanes": {
+      "l-family": {
+        "color": "#A0684E",
+        "createdAt": "2026-09-01T00:00:02.000Z",
+        "id": "l-family",
+        "name": "Family",
+        "order": 1,
+        "updatedAt": "2026-09-01T00:00:02.000Z"
+      },
+      "l-health": {
+        "color": "#5E8A72",
+        "createdAt": "2026-09-01T00:00:03.000Z",
+        "id": "l-health",
+        "name": "Health",
+        "order": 2,
+        "updatedAt": "2026-09-01T00:00:03.000Z"
+      },
+      "l-stuff": {
+        "color": "#8A8279",
+        "createdAt": "2026-09-01T00:00:04.000Z",
+        "id": "l-stuff",
+        "name": "Stuff",
+        "order": 3,
+        "updatedAt": "2026-09-01T00:00:04.000Z"
+      },
+      "l-work": {
+        "color": "#5A7391",
+        "createdAt": "2026-09-01T00:00:01.000Z",
+        "id": "l-work",
+        "name": "Work",
+        "order": 0,
+        "updatedAt": "2026-09-01T00:00:01.000Z"
+      }
+    },
+    "tasks": {
+      "t-april": {
+        "createdAt": "2026-09-01T00:00:12.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:15.000Z",
+        "id": "t-april",
+        "notes": "",
+        "parent": {
+          "id": "p-invoice",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "Invoice April",
+        "updatedAt": "2026-09-01T00:00:15.000Z"
+      },
+      "t-colours": {
+        "createdAt": "2026-09-01T00:00:21.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-colours",
+        "notes": "",
+        "parent": {
+          "id": "p-prototype",
+          "type": "plan"
+        },
+        "size": "S",
+        "title": "Name the swimlane colours",
+        "updatedAt": "2026-09-01T00:00:21.000Z"
+      },
+      "t-docs-0": {
+        "createdAt": "2026-09-01T00:00:50.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-docs-0",
+        "notes": "",
+        "parent": {
+          "id": "g-docs",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-docs item 0",
+        "updatedAt": "2026-09-01T00:00:50.000Z"
+      },
+      "t-docs-1": {
+        "createdAt": "2026-09-01T00:00:51.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-docs-1",
+        "notes": "",
+        "parent": {
+          "id": "g-docs",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-docs item 1",
+        "updatedAt": "2026-09-01T00:00:51.000Z"
+      },
+      "t-docs-2": {
+        "createdAt": "2026-09-01T00:00:52.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-docs-2",
+        "notes": "",
+        "parent": {
+          "id": "g-docs",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-docs item 2",
+        "updatedAt": "2026-09-01T00:00:52.000Z"
+      },
+      "t-docs-3": {
+        "createdAt": "2026-09-01T00:00:53.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-docs-3",
+        "notes": "",
+        "parent": {
+          "id": "g-docs",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-docs item 3",
+        "updatedAt": "2026-09-01T00:00:53.000Z"
+      },
+      "t-docs-4": {
+        "createdAt": "2026-09-01T00:00:54.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-docs-4",
+        "notes": "",
+        "parent": {
+          "id": "g-docs",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-docs item 4",
+        "updatedAt": "2026-09-01T00:00:54.000Z"
+      },
+      "t-domain": {
+        "createdAt": "2026-09-01T00:00:44.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-domain",
+        "notes": "",
+        "parent": {
+          "id": "l-stuff",
+          "type": "swimlane"
+        },
+        "size": "S",
+        "title": "Cancel the old domain",
+        "updatedAt": "2026-09-01T00:00:44.000Z"
+      },
+      "t-flights": {
+        "createdAt": "2026-09-01T00:00:39.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-flights",
+        "notes": "",
+        "parent": {
+          "id": "g-trip",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "Book the flights",
+        "updatedAt": "2026-09-01T00:00:39.000Z"
+      },
+      "t-garage-0": {
+        "createdAt": "2026-09-01T00:00:62.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:63.000Z",
+        "id": "t-garage-0",
+        "notes": "",
+        "parent": {
+          "id": "g-garage",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-garage item 0",
+        "updatedAt": "2026-09-01T00:00:63.000Z"
+      },
+      "t-garage-1": {
+        "createdAt": "2026-09-01T00:00:64.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-garage-1",
+        "notes": "",
+        "parent": {
+          "id": "g-garage",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-garage item 1",
+        "updatedAt": "2026-09-01T00:00:64.000Z"
+      },
+      "t-garage-2": {
+        "createdAt": "2026-09-01T00:00:65.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-garage-2",
+        "notes": "",
+        "parent": {
+          "id": "g-garage",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-garage item 2",
+        "updatedAt": "2026-09-01T00:00:65.000Z"
+      },
+      "t-garage-3": {
+        "createdAt": "2026-09-01T00:00:66.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-garage-3",
+        "notes": "",
+        "parent": {
+          "id": "g-garage",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-garage item 3",
+        "updatedAt": "2026-09-01T00:00:66.000Z"
+      },
+      "t-garage-4": {
+        "createdAt": "2026-09-01T00:00:67.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-garage-4",
+        "notes": "",
+        "parent": {
+          "id": "g-garage",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-garage item 4",
+        "updatedAt": "2026-09-01T00:00:67.000Z"
+      },
+      "t-garage-5": {
+        "createdAt": "2026-09-01T00:00:68.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-garage-5",
+        "notes": "",
+        "parent": {
+          "id": "g-garage",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-garage item 5",
+        "updatedAt": "2026-09-01T00:00:68.000Z"
+      },
+      "t-garage-6": {
+        "createdAt": "2026-09-01T00:00:69.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-garage-6",
+        "notes": "",
+        "parent": {
+          "id": "g-garage",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-garage item 6",
+        "updatedAt": "2026-09-01T00:00:69.000Z"
+      },
+      "t-garage-7": {
+        "createdAt": "2026-09-01T00:00:70.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-garage-7",
+        "notes": "",
+        "parent": {
+          "id": "g-garage",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-garage item 7",
+        "updatedAt": "2026-09-01T00:00:70.000Z"
+      },
+      "t-gate": {
+        "createdAt": "2026-09-01T00:00:42.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-gate",
+        "notes": "",
+        "parent": {
+          "id": "l-stuff",
+          "type": "swimlane"
+        },
+        "size": "S",
+        "title": "Fix the back gate",
+        "updatedAt": "2026-09-01T00:00:42.000Z"
+      },
+      "t-hire-0": {
+        "createdAt": "2026-09-01T00:00:45.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:46.000Z",
+        "id": "t-hire-0",
+        "notes": "",
+        "parent": {
+          "id": "g-hire",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-hire item 0",
+        "updatedAt": "2026-09-01T00:00:46.000Z"
+      },
+      "t-hire-1": {
+        "createdAt": "2026-09-01T00:00:47.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-hire-1",
+        "notes": "",
+        "parent": {
+          "id": "g-hire",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-hire item 1",
+        "updatedAt": "2026-09-01T00:00:47.000Z"
+      },
+      "t-hire-2": {
+        "createdAt": "2026-09-01T00:00:48.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-hire-2",
+        "notes": "",
+        "parent": {
+          "id": "g-hire",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-hire item 2",
+        "updatedAt": "2026-09-01T00:00:48.000Z"
+      },
+      "t-hire-3": {
+        "createdAt": "2026-09-01T00:00:49.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-hire-3",
+        "notes": "",
+        "parent": {
+          "id": "g-hire",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-hire item 3",
+        "updatedAt": "2026-09-01T00:00:49.000Z"
+      },
+      "t-june": {
+        "createdAt": "2026-09-01T00:00:10.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-june",
+        "notes": "",
+        "parent": {
+          "id": "p-invoice",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "Invoice June",
+        "updatedAt": "2026-09-01T00:00:10.000Z"
+      },
+      "t-march": {
+        "createdAt": "2026-09-01T00:00:11.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:14.000Z",
+        "id": "t-march",
+        "notes": "",
+        "parent": {
+          "id": "p-invoice",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "Invoice March",
+        "updatedAt": "2026-09-01T00:00:14.000Z"
+      },
+      "t-may": {
+        "createdAt": "2026-09-01T00:00:07.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-may",
+        "notes": "",
+        "parent": {
+          "id": "p-invoice",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "Invoice May",
+        "updatedAt": "2026-09-01T00:00:07.000Z"
+      },
+      "t-model": {
+        "createdAt": "2026-09-01T00:00:19.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-model",
+        "notes": "",
+        "parent": {
+          "id": "p-prototype",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "Draft the data model",
+        "updatedAt": "2026-09-01T00:00:19.000Z"
+      },
+      "t-passport": {
+        "createdAt": "2026-09-01T00:00:43.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-passport",
+        "notes": "",
+        "parent": {
+          "id": "l-stuff",
+          "type": "swimlane"
+        },
+        "size": null,
+        "title": "Renew the passport",
+        "updatedAt": "2026-09-01T00:00:43.000Z"
+      },
+      "t-po": {
+        "createdAt": "2026-09-01T00:00:13.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:16.000Z",
+        "id": "t-po",
+        "notes": "",
+        "parent": {
+          "id": "g-invoicing",
+          "type": "goal"
+        },
+        "size": "S",
+        "title": "Chase the two open POs",
+        "updatedAt": "2026-09-01T00:00:16.000Z"
+      },
+      "t-proto-a": {
+        "createdAt": "2026-09-01T00:00:22.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:24.000Z",
+        "id": "t-proto-a",
+        "notes": "",
+        "parent": {
+          "id": "p-prototype",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "Spike localStorage",
+        "updatedAt": "2026-09-01T00:00:24.000Z"
+      },
+      "t-proto-b": {
+        "createdAt": "2026-09-01T00:00:23.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:25.000Z",
+        "id": "t-proto-b",
+        "notes": "",
+        "parent": {
+          "id": "p-prototype",
+          "type": "plan"
+        },
+        "size": "S",
+        "title": "Pick the fonts",
+        "updatedAt": "2026-09-01T00:00:25.000Z"
+      },
+      "t-receipts": {
+        "createdAt": "2026-09-01T00:00:08.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-receipts",
+        "notes": "the shoebox in the office",
+        "parent": {
+          "id": "g-invoicing",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "Find the missing March receipts",
+        "updatedAt": "2026-09-15T09:00:00.000Z"
+      },
+      "t-runs-0": {
+        "createdAt": "2026-09-01T00:00:71.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:72.000Z",
+        "id": "t-runs-0",
+        "notes": "",
+        "parent": {
+          "id": "g-runs",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-runs item 0",
+        "updatedAt": "2026-09-01T00:00:72.000Z"
+      },
+      "t-runs-1": {
+        "createdAt": "2026-09-01T00:00:73.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:74.000Z",
+        "id": "t-runs-1",
+        "notes": "",
+        "parent": {
+          "id": "g-runs",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-runs item 1",
+        "updatedAt": "2026-09-01T00:00:74.000Z"
+      },
+      "t-runs-2": {
+        "createdAt": "2026-09-01T00:00:75.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:76.000Z",
+        "id": "t-runs-2",
+        "notes": "",
+        "parent": {
+          "id": "g-runs",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-runs item 2",
+        "updatedAt": "2026-09-01T00:00:76.000Z"
+      },
+      "t-runs-3": {
+        "createdAt": "2026-09-01T00:00:77.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-runs-3",
+        "notes": "",
+        "parent": {
+          "id": "g-runs",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-runs item 3",
+        "updatedAt": "2026-09-01T00:00:77.000Z"
+      },
+      "t-runs-4": {
+        "createdAt": "2026-09-01T00:00:78.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-runs-4",
+        "notes": "",
+        "parent": {
+          "id": "g-runs",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-runs item 4",
+        "updatedAt": "2026-09-01T00:00:78.000Z"
+      },
+      "t-ship-0": {
+        "createdAt": "2026-09-01T00:00:28.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-ship-0",
+        "notes": "",
+        "parent": {
+          "id": "p-ship",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "t-ship item 0",
+        "updatedAt": "2026-09-01T00:00:28.000Z"
+      },
+      "t-ship-1": {
+        "createdAt": "2026-09-01T00:00:29.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-ship-1",
+        "notes": "",
+        "parent": {
+          "id": "p-ship",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "t-ship item 1",
+        "updatedAt": "2026-09-01T00:00:29.000Z"
+      },
+      "t-ship-2": {
+        "createdAt": "2026-09-01T00:00:30.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-ship-2",
+        "notes": "",
+        "parent": {
+          "id": "p-ship",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "t-ship item 2",
+        "updatedAt": "2026-09-01T00:00:30.000Z"
+      },
+      "t-sketch": {
+        "createdAt": "2026-09-01T00:00:20.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-sketch",
+        "notes": "",
+        "parent": {
+          "id": "p-prototype",
+          "type": "plan"
+        },
+        "size": "L",
+        "title": "Sketch the swimlane view",
+        "updatedAt": "2026-09-01T00:00:20.000Z"
+      },
+      "t-tell-0": {
+        "createdAt": "2026-09-01T00:00:31.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-tell-0",
+        "notes": "",
+        "parent": {
+          "id": "p-tell",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "t-tell item 0",
+        "updatedAt": "2026-09-01T00:00:31.000Z"
+      },
+      "t-tell-1": {
+        "createdAt": "2026-09-01T00:00:32.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-tell-1",
+        "notes": "",
+        "parent": {
+          "id": "p-tell",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "t-tell item 1",
+        "updatedAt": "2026-09-01T00:00:32.000Z"
+      },
+      "t-tell-2": {
+        "createdAt": "2026-09-01T00:00:33.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-tell-2",
+        "notes": "",
+        "parent": {
+          "id": "p-tell",
+          "type": "plan"
+        },
+        "size": "M",
+        "title": "t-tell item 2",
+        "updatedAt": "2026-09-01T00:00:33.000Z"
+      },
+      "t-trip-0": {
+        "createdAt": "2026-09-01T00:00:55.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:56.000Z",
+        "id": "t-trip-0",
+        "notes": "",
+        "parent": {
+          "id": "g-trip",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-trip item 0",
+        "updatedAt": "2026-09-01T00:00:56.000Z"
+      },
+      "t-trip-1": {
+        "createdAt": "2026-09-01T00:00:57.000Z",
+        "deadline": null,
+        "done": true,
+        "doneAt": "2026-09-01T00:00:58.000Z",
+        "id": "t-trip-1",
+        "notes": "",
+        "parent": {
+          "id": "g-trip",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-trip item 1",
+        "updatedAt": "2026-09-01T00:00:58.000Z"
+      },
+      "t-trip-2": {
+        "createdAt": "2026-09-01T00:00:59.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-trip-2",
+        "notes": "",
+        "parent": {
+          "id": "g-trip",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-trip item 2",
+        "updatedAt": "2026-09-01T00:00:59.000Z"
+      },
+      "t-trip-3": {
+        "createdAt": "2026-09-01T00:00:60.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-trip-3",
+        "notes": "",
+        "parent": {
+          "id": "g-trip",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-trip item 3",
+        "updatedAt": "2026-09-01T00:00:60.000Z"
+      },
+      "t-trip-4": {
+        "createdAt": "2026-09-01T00:00:61.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-trip-4",
+        "notes": "",
+        "parent": {
+          "id": "g-trip",
+          "type": "goal"
+        },
+        "size": "M",
+        "title": "t-trip item 4",
+        "updatedAt": "2026-09-01T00:00:61.000Z"
+      },
+      "t-vat": {
+        "createdAt": "2026-09-01T00:00:09.000Z",
+        "deadline": null,
+        "done": false,
+        "doneAt": null,
+        "id": "t-vat",
+        "notes": "",
+        "parent": {
+          "id": "g-invoicing",
+          "type": "goal"
+        },
+        "size": "S",
+        "title": "Ask the accountant about VAT",
+        "updatedAt": "2026-09-01T00:00:09.000Z"
+      }
+    }
+  }
+}

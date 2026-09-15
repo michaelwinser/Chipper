@@ -86,6 +86,29 @@ Archive directly, and lane deletion offers to archive a whole lane's goals at on
 
 ---
 
+## B-8 · Child lookups scan every entity, so the board is O(n²)
+
+**Noticed:** M7, measuring rather than guessing. **Severity:** none at real size; recorded so
+it never has to be diagnosed.
+
+`childPlans` and `childTasks` each scan the whole `plans` / `tasks` map, and the selectors
+call them once per card and once per progress count. Measured:
+
+| Size | buildBoard | buildSweep | export |
+|---|---|---|---|
+| 150 tasks (realistic) | 6 ms | <1 ms | 1 ms |
+| 4,000 tasks (100× intended) | 206 ms | 234 ms | 5 ms |
+
+At the size this app is *for* it is invisible, and adding an index now would put
+indirection through the most heavily tested code in the project to solve a problem nobody
+has. `test/scale.test.ts` pins it under 500 ms so a real regression still fails.
+
+**Fixed would mean:** build a parent → children index once at the top of `buildBoard` and
+`buildSweep` and pass it down, rather than scanning per call. Do it if typing or ticking
+ever feels sticky — that is the symptom, and this is the cause.
+
+---
+
 ## B-4 · Swimlanes reorder with ↑↓ buttons rather than dragging
 
 **Noticed:** M1. **Severity:** minor.

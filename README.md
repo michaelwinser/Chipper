@@ -19,7 +19,7 @@ Working name. Structure is SGPT; the app is Chipper.
 | `ROADMAP.md` | Eight milestones, each a vertical slice that ends in something usable and something testable. |
 | `BACKLOG.md` | Rough edges and open decisions noticed while using the app. Not milestone work. |
 | `DESIGN.md` | Technical design. Layering, data model, the store port and its conformance suite, the pure view model, toolchain and tests. |
-| `mocks/*.dc.html` | Ten screen mockups, one artboard per file. Source, hand-editable. |
+| `mocks/*.dc.html` | Twelve screen mockups, one artboard per file. Source, hand-editable. Two are superseded by what shipped; `PRD.md` §12 says which. |
 | `mocks/canvas.json` | Canvas layout: artboard positions, titles, annotations. |
 | `.claude/agents/` | Standing reviewer roles. Read-only agents that audit the docs and mocks along one dimension each: lifecycle, principles, traceability, edge states, contracts. |
 
@@ -36,7 +36,7 @@ Needs **either** a Node version manager **or** Docker — nothing else.
 
 ```
 make setup     # install pinned dependencies (npm ci, exact lockfile)
-make dev       # dev server on :5173
+make dev       # dev server on :2447
 make check     # types, svelte, formatting, tests — what CI runs
 make test      # tests only
 make build     # static bundle into dist/
@@ -49,7 +49,19 @@ Node is pinned in `mise.toml` and `.nvmrc`; everything else in `package-lock.jso
 
 ## Reviewing
 
-The reviewers in `.claude/agents/` exist because an external reviewer found a gap — the whole lifecycle of creating, changing and destroying Goals — that a general "review this" pass had not. They are versioned with the source so the review dimensions don't depend on what anyone remembers to ask for on the day. Run one with `@lifecycle-reviewer PRD.md and mocks/`, or by name from the agent picker.
+The reviewers in `.claude/agents/` exist because an external reviewer found a gap — the whole
+lifecycle of creating, changing and destroying Goals — that a general "review this" pass had
+not. They are versioned with the source so the review dimensions don't depend on what anyone
+remembers to ask for on the day.
+
+**They run at the close of every milestone — all of them, not a chosen few.** `ROADMAP.md`
+§"How a milestone closes" has the loop: run all ten, fix or record or escalate every finding,
+re-run until a pass produces nothing new, then commit. Tooling findings are fixed before code
+findings, because weak tools are what let the code findings through.
+
+Run one with `@lifecycle-reviewer PRD.md and mocks/`, or by name from the agent picker. Agents
+added mid-session are not available by name until the next session; until then, run each as a
+general-purpose agent told to read its own definition file.
 
 | Agent | Finds |
 |---|---|
@@ -69,8 +81,21 @@ For implementation, after the code exists. These encode what `DESIGN.md` promise
 | `migration-reviewer` | schema changes with no migration, no prior-version fixture, or silent data loss |
 | `test-quality-reviewer` | tests that cannot fail, and `Never` clauses asserted nowhere |
 
+## Deploying
+
+Pushing to `main` builds and publishes to GitHub Pages via `.github/workflows/deploy.yml`.
+The workflow runs `make check` first, so a deploy cannot ship something the local gate
+would have refused. Repo **Settings → Pages → Source** must be set to **GitHub Actions**
+(done once, by hand).
+
+`localStorage` is scoped per origin, so the deployed app and a local dev server are
+**separate stores**. Moving your data between them means Export on one and Import on the
+other — which is the durability story working, not a workaround.
+
 ## Status
 
-PRD, mockups, design doc and roadmap are settled. Implementation starts at M0 (`ROADMAP.md`).
+M0–M7 built: the board, priorities, capture and the Pile, the working loop, lifecycle,
+the ritual, and the first-run and shipping work. `ROADMAP.md` has what each milestone
+covered; `BACKLOG.md` has the rough edges found by using it.
 
 v1 is a static single-page app with state in browser `localStorage`, hostable on GitHub Pages or run locally, desktop only, with JSON export/import as the durability story. Later: Cloud Run + Firestore. The data model is designed so that migration is a persistence swap rather than a rewrite.

@@ -27,14 +27,34 @@
     {/each}
 
     {#if board.lanes.length === 0}
-      <!-- First run. M7 owns this properly; here so the board cannot crash empty. -->
-      <p class="first-run">
-        Nothing here yet. Start with a swimlane — an area of your life or work.
-      </p>
+      <!--
+        First run. Explains the model in two lines and offers a way in — no tour, no
+        sample data to delete later, and nothing that has to be dismissed.
+      -->
+      <div class="first-run">
+        <p class="lead">
+          A <b>swimlane</b> is an area of your life or work. Inside it go <b>goals</b> — outcomes
+          you want — which you break into <b>plans</b> and <b>tasks</b> you can just do.
+        </p>
+        <p class="lead">Start with one swimlane. You can rename it, and add more later.</p>
+        {#if !readOnly}
+          <div class="suggestions">
+            {#each ['Work', 'Family', 'Health', 'Fun'] as name (name)}
+              <button onclick={() => actions.addSwimlane(name)}>{name}</button>
+            {/each}
+            <span class="or">or</span>
+            <AddInline
+              label="name your own"
+              placeholder="an area of your life or work"
+              onadd={(n) => actions.addSwimlane(n)}
+            />
+          </div>
+        {/if}
+      </div>
     {/if}
   </div>
 
-  {#if !readOnly}
+  {#if !readOnly && board.lanes.length > 0}
     <div class="add-lane">
       <AddInline
         label="Swimlane"
@@ -88,9 +108,44 @@
     gap: 24px;
   }
   .first-run {
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .lead {
     margin: 0;
     font-size: 14px;
+    line-height: 1.6;
     color: var(--muted-2);
+  }
+  .lead b {
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .suggestions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+    padding-top: 2px;
+  }
+  .suggestions button {
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink-2);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 7px 16px;
+    cursor: pointer;
+  }
+  .suggestions button:hover {
+    border-color: var(--line);
+  }
+  .or {
+    font-size: 12px;
+    color: var(--faint);
   }
   .add-lane {
     display: flex;
